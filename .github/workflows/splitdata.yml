@@ -1,5 +1,4 @@
-name: Split CSV Files by Gameweek (Simple)
-
+name: Split CSV Files by Gameweek and Commit
 on:
   # Trigger manually from GitHub UI
   workflow_dispatch:
@@ -24,13 +23,19 @@ jobs:
         
     - name: Run CSV split script
       run: |
-        python split_by_gameweek.py
+        python scripts/split_by_gameweek.py
         
-    - name: Upload split files as artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: gameweek-split-csvs
-        path: |
-          data/2024-2025/matches/GW*/
-          data/2024-2025/playermatchstats/GW*/
-        retention-days: 30
+    - name: Configure Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+    - name: Add and commit split files
+      run: |
+        git add data/2024-2025/matches/GW*/
+        git add data/2024-2025/playermatchstats/GW*/
+        git commit -m "Add gameweek-split CSV files (GW1-GW38)" || exit 0
+        
+    - name: Push changes
+      run: |
+        git push
