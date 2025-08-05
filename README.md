@@ -3,11 +3,17 @@
 Based on popular request, the following new contextual fields have been added to the playermatchstats table for the 2025/26 season. I have ran for 24/25 as well
 
 **tackles**: Total number of tackles attempted by the player.
+
 **start_min**: The minute the player entered the pitch (0 for starters).
+
 **finish_min**: The minute the player left the pitch (or the final minute of the match if they played the full game).
+
 **team_goals_conceded**: Total goals conceded by the player's team only while the player was on the pitch.
+
 **penalties_scored**: Number of penalties scored by the player.
+
 **penalties_missed**: Number of penalties missed by the player.
+
 
 # FPL-Elo-Insights: A Comprehensive FPL Dataset for the 2025/26 Season
 
