@@ -11,7 +11,8 @@ TOURNAMENT_NAME_MAP = {
     'friendly': 'Friendlies',
     'premier-league': 'Premier League',
     'champions-league': 'Champions League',
-    'prem': 'Premier League'
+    'prem': 'Premier League',
+    'community-shield': 'Community Shield'
 }
 
 # --- Setup: Load Environment Variables and Connect to Supabase ---
