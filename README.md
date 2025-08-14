@@ -129,7 +129,7 @@ This table contains data for **upcoming** games. It follows the exact same struc
 
 ---
 
-### `playermatchstats` This is the equivalent of FPL API Data
+### `playermatchstats` 
 
 This table provides detailed player-level statistics for each match, now including enhanced defensive and contextual metrics.
 
@@ -211,7 +211,7 @@ This table contains basic information about each player from the FPL API.
 
 ---
 
-### `playerstats`
+### `playerstats` This is the equivalent of FPL API Data
 
 This table stores a wide range of FPL player statistics, updated per gameweek.
 
