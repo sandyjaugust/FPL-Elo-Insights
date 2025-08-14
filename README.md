@@ -1,14 +1,3 @@
-Of course! It's a great idea to keep your documentation in sync with your data. Adding the new `gameweeks` table and the extra `playerstats` fields will make the dataset much more useful.
-
-Here is the updated version of your `README.md`. I have:
-1.  Added **`gameweeks.csv`** to the "Master Files" list.
-2.  Added a new, fully documented section for the **`gameweeks` table**.
-3.  Updated the **`playerstats`** table documentation with all the new fields you added.
-
-You can simply copy and paste the entire text below to replace your existing `README.md` file.
-
----
-
 # FPL-Elo-Insights: A Comprehensive FPL Dataset
 
 Welcome to FPL-Elo-Insights, a meticulously curated dataset designed to empower your Fantasy Premier League analysis beyond the surface. This project uniquely links official FPL player data with detailed match statistics and historical team Elo ratings, allowing for unparalleled insights.
