@@ -92,6 +92,7 @@ def fetch_data_since_gameweek(table_name: str, start_gameweek: int, gameweek_col
         return pd.DataFrame()
 
 def fetch_data_by_ids(table_name: str, column: str, ids: list) -> pd.DataFrame:
+    """Fetches records from a table where a column value is in the provided list of IDs."""
     if not ids: return pd.DataFrame()
     print(f"Fetching {len(ids)} related records from '{table_name}' using '{column}'...")
     all_data = []
@@ -101,4 +102,109 @@ def fetch_data_by_ids(table_name: str, column: str, ids: list) -> pd.DataFrame:
         try:
             response = supabase.table(table_name).select('*').in_(column, chunk_ids).execute()
             all_data.extend(response.data)
-        except Exception as 
+        # --- SYNTAX ERROR FIXED HERE ---
+        except Exception as e:
+            print(f"  ERROR fetching chunk from '{table_name}': {e}")
+    df = pd.DataFrame(all_data)
+    print(f"  > Fetched {len(df)} total rows from '{table_name}'.")
+    return df
+
+def update_csv(df: pd.DataFrame, file_path: str, unique_cols: list):
+    """Updates a CSV by merging new data and removing duplicates, keeping the latest."""
+    if df.empty: return
+    create_directory(os.path.dirname(file_path))
+    if os.path.exists(file_path):
+        existing_df = pd.read_csv(file_path)
+        combined_df = pd.concat([existing_df, df])
+    else:
+        combined_df = df
+    updated_df = combined_df.drop_duplicates(subset=unique_cols, keep='last')
+    updated_df.to_csv(file_path, index=False)
+
+
+def main():
+    season_path = os.path.join('data', SEASON)
+    print(f"--- Starting Automated Data Update for Season {SEASON} ---")
+    print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}")
+
+    all_players_df = fetch_all_records('players')
+    all_teams_df = fetch_all_records('teams')
+    all_gameweeks_df = fetch_all_records('gameweeks')
+
+    start_gameweek = get_latest_gameweek_from_table('matches', finished_only=True)
+    print(f"\n--- Processing data for Gameweek {start_gameweek} and onwards ---")
+
+    matches_df = fetch_data_since_gameweek('matches', start_gameweek)
+    recent_player_stats_df = fetch_data_since_gameweek('playerstats', start_gameweek, gameweek_col='gw')
+
+    if matches_df.empty:
+        print("\nNo new/upcoming match data to process. Updating master files only.")
+        update_csv(all_players_df, os.path.join(season_path, 'players.csv'), unique_cols=['player_id'])
+        update_csv(all_teams_df, os.path.join(season_path, 'teams.csv'), unique_cols=['id'])
+        update_csv(all_gameweeks_df, os.path.join(season_path, 'gameweek_summaries.csv'), unique_cols=['id'])
+        update_csv(recent_player_stats_df, os.path.join(season_path, 'playerstats.csv'), unique_cols=['id', 'gw'])
+        print("\n--- Process complete. ---")
+        return
+
+    print("\n--- Pre-processing fetched data ---")
+    matches_df['tournament'] = matches_df['match_id'].apply(lambda mid: get_tournament_name_from_id(mid, TOURNAMENT_NAME_MAP))
+    
+    all_gws = sorted(matches_df['gameweek'].dropna().unique())
+    print(f"Found data for new gameweeks: {all_gws}")
+    
+    for gw in all_gws:
+        gw = int(gw)
+        print(f"\n--- Saving data for GW{gw} ---")
+        
+        gw_matches_df = matches_df[matches_df['gameweek'] == gw]
+        gw_finished_matches_df = gw_matches_df[gw_matches_df['finished'] == True].copy()
+        gw_fixtures_df = gw_matches_df[gw_matches_df['finished'] == False].copy()
+        gw_player_stats_df = recent_player_stats_df[recent_player_stats_df['gw'] == gw].copy()
+
+        relevant_match_ids = gw_finished_matches_df['match_id'].unique().tolist()
+        player_match_stats_df = fetch_data_by_ids('playermatchstats', 'match_id', relevant_match_ids)
+
+        gw_dir = os.path.join(season_path, "By Gameweek", f"GW{gw}")
+        update_csv(gw_finished_matches_df, os.path.join(gw_dir, "matches.csv"), unique_cols=['match_id'])
+        update_csv(gw_fixtures_df, os.path.join(gw_dir, "fixtures.csv"), unique_cols=['match_id'])
+        update_csv(player_match_stats_df, os.path.join(gw_dir, "playermatchstats.csv"), unique_cols=['player_id', 'match_id'])
+        update_csv(all_players_df, os.path.join(gw_dir, "players.csv"), unique_cols=['player_id'])
+        update_csv(all_teams_df, os.path.join(gw_dir, "teams.csv"), unique_cols=['id'])
+        update_csv(gw_player_stats_df, os.path.join(gw_dir, "playerstats.csv"), unique_cols=['id', 'gw'])
+        print(f"  > Saved data to '{gw_dir}'")
+        
+        for tourn, group in gw_matches_df.groupby('tournament'):
+            tourn_dir = os.path.join(season_path, "By Tournament", tourn, f"GW{gw}")
+            
+            tourn_home_teams = group['home_team']
+            tourn_away_teams = group['away_team']
+
+            tourn_finished_matches = group[group['finished'] == True]
+            tourn_fixtures = group[group['finished'] == False]
+            tourn_match_ids = tourn_finished_matches['match_id'].unique().tolist()
+            tourn_pms = player_match_stats_df[player_match_stats_df['match_id'].isin(tourn_match_ids)]
+            
+            tourn_team_ids = pd.concat([tourn_home_teams, tourn_away_teams]).unique().tolist()
+            
+            players_in_tourn_teams = all_players_df[all_players_df['team_id'].isin(tourn_team_ids)]['player_id'].unique().tolist()
+            tourn_player_stats = gw_player_stats_df[gw_player_stats_df['id'].isin(players_in_tourn_teams)]
+
+            update_csv(tourn_finished_matches, os.path.join(tourn_dir, "matches.csv"), unique_cols=['match_id'])
+            update_csv(tourn_fixtures, os.path.join(tourn_dir, "fixtures.csv"), unique_cols=['match_id'])
+            update_csv(tourn_pms, os.path.join(tourn_dir, "playermatchstats.csv"), unique_cols=['player_id', 'match_id'])
+            update_csv(all_players_df, os.path.join(tourn_dir, "players.csv"), unique_cols=['player_id'])
+            update_csv(all_teams_df, os.path.join(tourn_dir, "teams.csv"), unique_cols=['id'])
+            update_csv(tourn_player_stats, os.path.join(tourn_dir, "playerstats.csv"), unique_cols=['id', 'gw'])
+            print(f"  > Saved data to '{tourn_dir}'")
+
+    print("\n--- Updating master data files in root directory ---")
+    update_csv(all_players_df, os.path.join(season_path, 'players.csv'), unique_cols=['player_id'])
+    update_csv(all_teams_df, os.path.join(season_path, 'teams.csv'), unique_cols=['id'])
+    update_csv(all_gameweeks_df, os.path.join(season_path, 'gameweek_summaries.csv'), unique_cols=['id'])
+    update_csv(recent_player_stats_df, os.path.join(season_path, 'playerstats.csv'), unique_cols=['id', 'gw'])
+    print(f"  > Master files in '{season_path}' updated.")
+
+    print("\n--- Automated data update process completed successfully! ---")
+
+if __name__ == "__main__":
+    main()
