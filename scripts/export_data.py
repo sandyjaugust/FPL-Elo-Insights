@@ -102,7 +102,6 @@ def fetch_data_by_ids(table_name: str, column: str, ids: list) -> pd.DataFrame:
         try:
             response = supabase.table(table_name).select('*').in_(column, chunk_ids).execute()
             all_data.extend(response.data)
-        # --- SYNTAX ERROR FIXED HERE ---
         except Exception as e:
             print(f"  ERROR fetching chunk from '{table_name}': {e}")
     df = pd.DataFrame(all_data)
@@ -186,7 +185,11 @@ def main():
             
             tourn_team_ids = pd.concat([tourn_home_teams, tourn_away_teams]).unique().tolist()
             
-            players_in_tourn_teams = all_players_df[all_players_df['team_id'].isin(tourn_team_ids)]['player_id'].unique().tolist()
+            # --- FINAL FIX APPLIED HERE ---
+            # Changed 'team_id' to 'team' to match the likely schema of the players table.
+            players_in_tourn_teams = all_players_df[all_players_df['team'].isin(tourn_team_ids)]['player_id'].unique().tolist()
+            # --- END OF FIX ---
+
             tourn_player_stats = gw_player_stats_df[gw_player_stats_df['id'].isin(players_in_tourn_teams)]
 
             update_csv(tourn_finished_matches, os.path.join(tourn_dir, "matches.csv"), unique_cols=['match_id'])
