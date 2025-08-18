@@ -138,7 +138,11 @@ def main():
 
     if matches_df.empty:
         print("\nNo new/upcoming match data to process. Updating master files only.")
-        # ... (rest of the if block is fine)
+        update_csv(all_players_df, os.path.join(season_path, 'players.csv'), unique_cols=['player_id'])
+        update_csv(all_teams_df, os.path.join(season_path, 'teams.csv'), unique_cols=['id'])
+        update_csv(all_gameweeks_df, os.path.join(season_path, 'gameweek_summaries.csv'), unique_cols=['id'])
+        update_csv(recent_player_stats_df, os.path.join(season_path, 'playerstats.csv'), unique_cols=['id', 'gw'])
+        print("\n--- Process complete. ---")
         return
 
     print("\n--- Pre-processing fetched data ---")
@@ -152,14 +156,14 @@ def main():
         print(f"\n--- Saving data for GW{gw} ---")
         
         gw_matches_df = matches_df[matches_df['gameweek'] == gw]
-        # ... (rest of the outer loop setup is fine)
         gw_finished_matches_df = gw_matches_df[gw_matches_df['finished'] == True].copy()
         gw_fixtures_df = gw_matches_df[gw_matches_df['finished'] == False].copy()
         gw_player_stats_df = recent_player_stats_df[recent_player_stats_df['gw'] == gw].copy()
+
         relevant_match_ids = gw_finished_matches_df['match_id'].unique().tolist()
         player_match_stats_df = fetch_data_by_ids('playermatchstats', 'match_id', relevant_match_ids)
+
         gw_dir = os.path.join(season_path, "By Gameweek", f"GW{gw}")
-        # ... (all the update_csv calls for 'By Gameweek' are fine)
         update_csv(gw_finished_matches_df, os.path.join(gw_dir, "matches.csv"), unique_cols=['match_id'])
         update_csv(gw_fixtures_df, os.path.join(gw_dir, "fixtures.csv"), unique_cols=['match_id'])
         update_csv(player_match_stats_df, os.path.join(gw_dir, "playermatchstats.csv"), unique_cols=['player_id', 'match_id'])
@@ -179,30 +183,14 @@ def main():
             tourn_match_ids = tourn_finished_matches['match_id'].unique().tolist()
             tourn_pms = player_match_stats_df[player_match_stats_df['match_id'].isin(tourn_match_ids)]
             
+            # Get the list of team CODES from the matches
             tourn_team_codes = pd.concat([tourn_home_teams, tourn_away_teams]).unique().tolist()
-            relevant_team_ids = all_teams_df[all_teams_df['code'].isin(tourn_team_codes)]['id'].unique().tolist()
-
-            # --- NEW DEBUGGING LOGS ---
-            print(f"\n  > DEBUG: For tournament '{tourn}', found team codes: {tourn_team_codes}")
-            print(f"  > DEBUG: Translated to primary team IDs: {relevant_team_ids}")
-            print(f"  > DEBUG: Columns available in the 'players' table are: {all_players_df.columns.tolist()}")
-            # --- END DEBUGGING LOGS ---
-
-            try:
-                # --- THIS IS THE LINE TO FIX ---
-                # Based on the DEBUG output, change 'team' to the correct column name from the list above.
-                players_in_tourn_teams = all_players_df[all_players_df['team'].isin(relevant_team_ids)]['player_id'].unique().tolist()
-                # -----------------------------
-
-            except KeyError as e:
-                print("\n--- SCRIPT CRASHED: Please read below ---")
-                print(f"ERROR: {e}")
-                print("\nThis is the final issue. I could not find the column that links a player to their team.")
-                print("\nACTION REQUIRED:")
-                print("1. Look at the 'DEBUG: Columns available...' line printed just before this error.")
-                print("2. Find the correct column name in that list (it might be 'team_id', 'team_code', etc.).")
-                print("3. Open the script and replace 'team' in the line shown above with the correct name.")
-                exit(1) # Stop the script cleanly
+            
+            # --- FINAL FIX ---
+            # Use the correct column 'team_code' from the players table to find all players
+            # who belong to the teams playing in this tournament.
+            players_in_tourn_teams = all_players_df[all_players_df['team_code'].isin(tourn_team_codes)]['player_id'].unique().tolist()
+            # --- END OF FIX ---
 
             tourn_player_stats = gw_player_stats_df[gw_player_stats_df['id'].isin(players_in_tourn_teams)]
 
