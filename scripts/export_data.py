@@ -183,11 +183,15 @@ def main():
             tourn_match_ids = tourn_finished_matches['match_id'].unique().tolist()
             tourn_pms = player_match_stats_df[player_match_stats_df['match_id'].isin(tourn_match_ids)]
             
-            tourn_team_ids = pd.concat([tourn_home_teams, tourn_away_teams]).unique().tolist()
-            
             # --- FINAL FIX APPLIED HERE ---
-            # Changed 'team_id' to 'team' to match the likely schema of the players table.
-            players_in_tourn_teams = all_players_df[all_players_df['team'].isin(tourn_team_ids)]['player_id'].unique().tolist()
+            # 1. Get the list of team CODES from the matches
+            tourn_team_codes = pd.concat([tourn_home_teams, tourn_away_teams]).unique().tolist()
+            
+            # 2. Use the team CODES to look up the team primary IDs in the master teams table
+            relevant_team_ids = all_teams_df[all_teams_df['code'].isin(tourn_team_codes)]['id'].unique().tolist()
+
+            # 3. Use the correct team IDs to filter the players table
+            players_in_tourn_teams = all_players_df[all_players_df['team'].isin(relevant_team_ids)]['player_id'].unique().tolist()
             # --- END OF FIX ---
 
             tourn_player_stats = gw_player_stats_df[gw_player_stats_df['id'].isin(players_in_tourn_teams)]
