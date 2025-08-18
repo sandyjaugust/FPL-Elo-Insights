@@ -180,11 +180,16 @@ def main():
         update_csv(all_players_df, os.path.join(gw_dir, "players.csv"), unique_cols=['player_id'])
         update_csv(all_teams_df, os.path.join(gw_dir, "teams.csv"), unique_cols=['id'])
 
-        # --- FIX: Overwrite the playerstats file completely for each gameweek to ensure it's not partial ---
+        # --- FIX: Delete existing file before writing to prevent partial data issues ---
+        playerstats_file_path = os.path.join(gw_dir, "playerstats.csv")
+        if os.path.exists(playerstats_file_path):
+            os.remove(playerstats_file_path)
+            print(f"  > Deleted old playerstats file for GW{gw}.")
+        
         gw_player_stats = all_player_stats_df[all_player_stats_df['gw'] == gw]
         if not gw_player_stats.empty:
-            gw_player_stats.to_csv(os.path.join(gw_dir, "playerstats.csv"), index=False)
-            print(f"  > Player stats for GW{gw} successfully written to {os.path.join(gw_dir, 'playerstats.csv')}")
+            gw_player_stats.to_csv(playerstats_file_path, index=False)
+            print(f"  > Player stats for GW{gw} successfully written to {playerstats_file_path}")
 
 
     print("  > Processed all data into 'By Gameweek' structure.")
@@ -207,11 +212,16 @@ def main():
         update_csv(all_players_df, os.path.join(tourn_dir, "players.csv"), unique_cols=['player_id'])
         update_csv(all_teams_df, os.path.join(tourn_dir, "teams.csv"), unique_cols=['id'])
         
-        # --- FIX: Overwrite the playerstats file completely for each gameweek and tournament ---
+        # --- FIX: Delete existing file before writing to prevent partial data issues ---
+        tourn_playerstats_file_path = os.path.join(tourn_dir, "playerstats.csv")
+        if os.path.exists(tourn_playerstats_file_path):
+            os.remove(tourn_playerstats_file_path)
+            print(f"  > Deleted old playerstats file for {tourn} GW{gw}.")
+            
         tourn_player_stats = all_player_stats_df[(all_player_stats_df['id'].isin(tourn_player_ids)) & (all_player_stats_df['gw'] == gw)]
         if not tourn_player_stats.empty:
-            tourn_player_stats.to_csv(os.path.join(tourn_dir, "playerstats.csv"), index=False)
-            print(f"  > Player stats for {tourn} GW{gw} successfully written to {os.path.join(tourn_dir, 'playerstats.csv')}")
+            tourn_player_stats.to_csv(tourn_playerstats_file_path, index=False)
+            print(f"  > Player stats for {tourn} GW{gw} successfully written to {tourn_playerstats_file_path}")
 
     print("  > Processed all data into 'By Tournament' structure.")
 
@@ -234,4 +244,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
