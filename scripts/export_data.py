@@ -28,6 +28,7 @@ if not url or not key:
 supabase: Client = create_client(url, key)
 
 # --- Helper Functions (No changes needed) ---
+
 def create_directory(path: str):
     Path(path).mkdir(parents=True, exist_ok=True)
 
@@ -130,8 +131,8 @@ def main():
     recent_player_stats_df = fetch_data_since_gameweek('playerstats', start_gameweek, gameweek_col='gw')
 
     if matches_df.empty:
-        print("\nNo new/upcoming match data to process. Updating master files only.")
-        # ... (rest of if block is fine)
+        print("\nNo new/upcoming match data to process.")
+        # ... rest of if block is fine
         return
 
     print("\n--- Pre-processing fetched data ---")
@@ -149,11 +150,8 @@ def main():
         gw_fixtures_df = gw_matches_df[gw_matches_df['finished'] == False].copy()
         gw_player_stats_df = recent_player_stats_df[recent_player_stats_df['gw'] == gw].copy()
 
-        # --- LOGIC FIX: Move fetching inside the gameweek loop ---
-        # Get player-match-stats ONLY for the finished matches IN THIS GAMEWEEK
         relevant_match_ids = gw_finished_matches_df['match_id'].unique().tolist()
         player_match_stats_df = fetch_data_by_ids('playermatchstats', 'match_id', relevant_match_ids)
-        # --- END OF FIX ---
 
         gw_dir = os.path.join(season_path, "By Gameweek", f"GW{gw}")
         update_csv(gw_finished_matches_df, os.path.join(gw_dir, "matches.csv"), unique_cols=['match_id'])
@@ -173,10 +171,16 @@ def main():
             tourn_finished_matches = group[group['finished'] == True]
             tourn_fixtures = group[group['finished'] == False]
             
-            # --- LOGIC FIX: Filter the correct player_match_stats_df ---
             tourn_match_ids = tourn_finished_matches['match_id'].unique().tolist()
+            
+            # --- DEBUGGING LOGS ---
+            print(f"\n  > DEBUG: For tournament '{tourn}' in GW{gw}...")
+            print(f"  > DEBUG: Finished match IDs for this tournament are: {tourn_match_ids}")
+            print(f"  > DEBUG: The 'player_match_stats_df' DataFrame has these columns: {player_match_stats_df.columns.tolist()}")
+            # --- END DEBUGGING LOGS ---
+            
+            # This is the line that is expected to crash
             tourn_pms = player_match_stats_df[player_match_stats_df['match_id'].isin(tourn_match_ids)]
-            # --- END OF FIX ---
             
             tourn_team_codes = pd.concat([tourn_home_teams, tourn_away_teams]).unique().tolist()
             players_in_tourn_teams = all_players_df[all_players_df['team_code'].isin(tourn_team_codes)]['player_id'].unique().tolist()
