@@ -27,7 +27,7 @@ if not url or not key:
 
 supabase: Client = create_client(url, key)
 
-# --- Helper Functions ---
+# --- Helper Functions (No changes here) ---
 
 def create_directory(path: str):
     """Creates a directory if it doesn't already exist."""
@@ -95,7 +95,7 @@ def fetch_data_by_ids(table_name: str, column: str, ids: list) -> pd.DataFrame:
     if not ids: return pd.DataFrame()
     print(f"Fetching {len(ids)} related records from '{table_name}' using '{column}'...")
     all_data = []
-    chunk_size = 500  # Supabase has limits on URL length for .in() filter
+    chunk_size = 500
     for i in range(0, len(ids), chunk_size):
         chunk_ids = ids[i:i + chunk_size]
         try:
@@ -113,7 +113,6 @@ def update_csv(df: pd.DataFrame, file_path: str, unique_cols: list):
     and keeps the latest entries based on unique columns. Otherwise, it creates a new file.
     """
     if df.empty:
-        # print(f"  > No data to write to {file_path}, skipping.")
         return
         
     create_directory(os.path.dirname(file_path))
@@ -124,61 +123,54 @@ def update_csv(df: pd.DataFrame, file_path: str, unique_cols: list):
     else:
         combined_df = df
         
-    # Drop duplicates, keeping the last entry, which is the newest data
     updated_df = combined_df.drop_duplicates(subset=unique_cols, keep='last')
     updated_df.to_csv(file_path, index=False)
-    # print(f"  > Successfully updated {file_path}")
 
+# --- NEW, CORRECTED main() FUNCTION ---
 def main():
     """Main function to run the entire data export and processing pipeline."""
     season_path = os.path.join('data', SEASON)
     print(f"--- Starting Automated Data Update for Season {SEASON} ---")
     print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}")
 
-    # --- 1. Fetch ALL master data (players, teams, gameweeks) ---
+    # --- 1. Fetch ALL master data that we need for lookups ---
     all_players_df = fetch_all_records('players')
     all_teams_df = fetch_all_records('teams')
     all_gameweeks_df = fetch_all_records('gameweeks')
 
-    # --- 2. Determine the LATEST gameweek to process from the 'matches' and 'playerstats' tables ---
-    latest_match_gw = get_latest_gameweek_from_table('matches', finished_only=True)
-    latest_playerstats_gw = get_latest_gameweek_from_table('playerstats', gameweek_col='gw', finished_only=False)
-    
-    # We process the highest gameweek found across both tables to ensure we get all recent data
-    start_gameweek = max(latest_match_gw, latest_playerstats_gw)
+    # --- 2. Determine the LATEST finished gameweek to process ---
+    start_gameweek = get_latest_gameweek_from_table('matches', finished_only=True)
 
-    # --- 3. Fetch data only for the determined gameweek ---
+    # --- 3. Fetch data ONLY for that specific gameweek ---
+    print(f"\n--- Processing data for Gameweek {start_gameweek} ---")
     matches_df = fetch_data_for_gameweek('matches', start_gameweek)
     player_stats_df = fetch_data_for_gameweek('playerstats', start_gameweek, gameweek_col='gw')
 
-    # Exit early if there's no data for the target gameweek
+    # Exit early if there's no match data for the target gameweek
     if matches_df.empty:
-        print(f"\nNo match data found for the latest gameweek (GW{start_gameweek}). No new files will be created.")
+        print(f"\nNo match data found for Gameweek {start_gameweek}. No new files will be created.")
         print("\n--- Process complete. ---")
         return
 
     print("\n--- Pre-processing fetched data ---")
     matches_df['tournament'] = matches_df['match_id'].apply(lambda mid: get_tournament_name_from_id(mid, TOURNAMENT_NAME_MAP))
     
-    # Split matches into finished and fixtures
     finished_matches_df = matches_df[matches_df['finished'] == True].copy()
     fixtures_df = matches_df[matches_df['finished'] == False].copy()
 
     print(f"  > Processing GW{start_gameweek}: Found {len(finished_matches_df)} finished matches and {len(fixtures_df)} upcoming fixtures.")
 
-    # Fetch player-match stats ONLY for the finished matches in our target gameweek
     relevant_match_ids = finished_matches_df['match_id'].unique().tolist()
     player_match_stats_df = fetch_data_by_ids('playermatchstats', 'match_id', relevant_match_ids)
 
-    # Add helper columns to player-match stats
     if not player_match_stats_df.empty:
         match_id_to_tourn_map = matches_df.set_index('match_id')['tournament'].to_dict()
-        player_match_stats_df['gameweek'] = start_gameweek  # Assign the current GW
+        player_match_stats_df['gameweek'] = start_gameweek
         player_match_stats_df['tournament'] = player_match_stats_df['match_id'].map(match_id_to_tourn_map)
 
     print("\n--- Saving data into directory structures ---")
 
-    # --- 4. Save data into the 'By Gameweek' structure for the current GW ---
+    # --- 4. Save data into the 'By Gameweek' structure ---
     gw_dir = os.path.join(season_path, "By Gameweek", f"GW{start_gameweek}")
     print(f"\nProcessing 'By Gameweek' directory: {gw_dir}")
     update_csv(finished_matches_df.drop(columns=['tournament'], errors='ignore'), os.path.join(gw_dir, "matches.csv"), unique_cols=['match_id'])
@@ -198,30 +190,18 @@ def main():
         tourn_match_ids = tourn_finished_matches['match_id'].unique().tolist()
         tourn_pms = player_match_stats_df[player_match_stats_df['match_id'].isin(tourn_match_ids)]
         
-        # Filter the main player_stats_df for players who played in this tournament this gameweek
-        tourn_player_ids = tourn_pms['player_id'].unique().tolist()
+        # --- START: LOGIC FIX ---
+        # Get ALL teams involved in this tournament for this GW (both finished and fixtures)
+        tourn_home_teams = group['home_team_id']
+        tourn_away_teams = group['away_team_id']
+        tourn_team_ids = pd.concat([tourn_home_teams, tourn_away_teams]).unique().tolist()
+        
+        # Get ALL players who belong to those teams from the master players list
+        tourn_player_ids = all_players_df[all_players_df['team_id'].isin(tourn_team_ids)]['player_id'].unique().tolist()
+        
+        # Filter the GW's player stats to only include players from those teams
         tourn_player_stats = player_stats_df[player_stats_df['id'].isin(tourn_player_ids)]
+        # --- END: LOGIC FIX ---
 
         update_csv(tourn_finished_matches.drop(columns=['tournament'], errors='ignore'), os.path.join(tourn_dir, "matches.csv"), unique_cols=['match_id'])
-        update_csv(tourn_pms.drop(columns=['gameweek', 'tournament'], errors='ignore'), os.path.join(tourn_dir, "playermatchstats.csv"), unique_cols=['player_id', 'match_id'])
-        update_csv(tourn_fixtures.drop(columns=['tournament'], errors='ignore'), os.path.join(tourn_dir, "fixtures.csv"), unique_cols=['match_id'])
-        update_csv(all_players_df, os.path.join(tourn_dir, "players.csv"), unique_cols=['player_id'])
-        update_csv(all_teams_df, os.path.join(tourn_dir, "teams.csv"), unique_cols=['id'])
-        update_csv(tourn_player_stats, os.path.join(tourn_dir, "playerstats.csv"), unique_cols=['id', 'gw'])
-    
-    # --- 6. Update Master Files in the root season folder ---
-    # These files accumulate all data over the season
-    print("\n--- Updating master data files in root directory ---")
-    update_csv(all_players_df, os.path.join(season_path, 'players.csv'), unique_cols=['player_id'])
-    update_csv(all_teams_df, os.path.join(season_path, 'teams.csv'), unique_cols=['id'])
-    update_csv(all_gameweeks_df, os.path.join(season_path, 'gameweek_summaries.csv'), unique_cols=['id'])
-
-    # Append the newly fetched player stats to the master file
-    master_player_stats_path = os.path.join(season_path, 'playerstats.csv')
-    update_csv(player_stats_df, master_player_stats_path, unique_cols=['id', 'gw'])
-    print(f"  > Master files in '{season_path}' updated.")
-
-    print("\n--- Automated data update process completed successfully! ---")
-
-if __name__ == "__main__":
-    main()
+        update_csv(tourn_pms.drop(columns=['gameweek', 'tournament'], errors='ignore'), os.path.
