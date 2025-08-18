@@ -2,8 +2,7 @@ name: Data Import from Supabase
 
 on:
   schedule:
-    - cron: '0 5 * * *'    # Runs daily at 5:00 UTC
-    - cron: '0 17 * * *'   # Runs daily at 17:00 UTC
+    - cron: '0 22 * * *'   # Runs daily at 17:00 UTC
   workflow_dispatch:        # Allows manual trigger
 
 jobs:
