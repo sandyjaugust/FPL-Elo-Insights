@@ -1,5 +1,3 @@
-# scripts/export_data.py
-
 import os
 import sys
 import pandas as pd
@@ -41,10 +39,13 @@ def get_start_gameweek() -> int:
             # Find the last gameweek that is marked as finished
             finished_gws = summaries_df[summaries_df['finished'] == True]
             if not finished_gws.empty:
-                latest_finished_gw = finished_gws['gw'].max()
-                start_gw = int(latest_finished_gw) + 1 # *** CRITICAL FIX: Convert to standard int ***
+                # *** BUG FIX 1: Use 'id' column from gameweeks table, not 'gw' ***
+                latest_finished_gw = finished_gws['id'].max()
+                start_gw = int(latest_finished_gw) + 1
                 logger.info(f"  > Latest FINISHED gameweek in local file: {latest_finished_gw}. Processing from GW{start_gw}.")
                 return start_gw
+        except KeyError:
+             logger.warning(f"Could not find 'id' or 'finished' column in summary file. Defaulting to full load from GW1.")
         except Exception as e:
             logger.warning(f"Could not process local summary file: {e}. Defaulting to full load from GW1.")
     
@@ -60,7 +61,6 @@ def fetch_data_from_table(supabase: Client, table_name: str, start_gw: int = Non
     
     if is_incremental:
         logger.info(f"Fetching data from '{table_name}' for GW{start_gw} onwards (Incremental Load)...")
-        # *** CRITICAL FIX: Ensure start_gw is a standard Python int for the filter ***
         query = supabase.table(table_name).select("*").gte('gw', int(start_gw))
     else:
         logger.info(f"Fetching all records from master table: '{table_name}'...")
@@ -97,7 +97,6 @@ def main():
         return
 
     logger.info("\n--- Pre-processing fetched data ---")
-    # Determine the range of new gameweeks to process
     new_gameweeks = sorted(playerstats_df['gw'].unique())
     logger.info(f"Found data for new gameweeks: {new_gameweeks}\n")
 
@@ -105,23 +104,24 @@ def main():
     for gw in new_gameweeks:
         logger.info(f"--- Saving data for GW{gw} ---")
         
-        # Filter data for the current gameweek
-        gw_info = gameweeks_df[gameweeks_df['id'] == gw].iloc[0]
+        # *** BUG FIX 2: Check if gw exists in gameweeks_df before processing ***
+        gw_info_df = gameweeks_df[gameweeks_df['id'] == gw]
+        if gw_info_df.empty:
+            logger.warning(f"  > No official event found for GW{gw}. Skipping this gameweek.")
+            continue
+        
+        gw_info = gw_info_df.iloc[0]
         gw_playerstats = playerstats_df[playerstats_df['gw'] == gw]
         gw_matches = matches_df[matches_df['event'] == gw]
         
-        # Define output paths
         gw_base_path = os.path.join(BASE_DATA_PATH, 'By Gameweek', f'GW{gw}')
-        # In a real scenario, you might have different tournaments, but we'll hardcode for now
         tournament_path = os.path.join(BASE_DATA_PATH, 'By Tournament', 'Premier League', f'GW{gw}')
         os.makedirs(gw_base_path, exist_ok=True)
         os.makedirs(tournament_path, exist_ok=True)
 
-        # Save the filtered dataframes as CSV files
         gw_playerstats.to_csv(os.path.join(gw_base_path, 'player_stats.csv'), index=False)
         gw_matches.to_csv(os.path.join(gw_base_path, 'matches.csv'), index=False)
         
-        # For unfinished gameweeks, we save the current snapshot of players and teams
         if not gw_info['finished']:
             logger.info("  > Gameweek is not finished. Saving current player/team snapshots.")
             players_df.to_csv(os.path.join(gw_base_path, 'players.csv'), index=False)
@@ -130,22 +130,19 @@ def main():
              logger.info("  > Gameweek is finished. Skipping player/team snapshot update to preserve history.")
 
         logger.info(f"  > Saved data to '{gw_base_path}'")
-        # You would add logic here to copy/link files to the tournament path if needed
         logger.info(f"  > Saved data to '{tournament_path}'\n")
 
     # --- Update Master Files ---
     logger.info("--- Updating master data files in root directory ---")
-    finished_gws_in_run = [gw for gw in new_gameweeks if gameweeks_df[gameweeks_df['id'] == gw].iloc[0]['finished']]
+    finished_gws_in_run = [gw for gw in new_gameweeks if not gameweeks_df[gameweeks_df['id'] == gw].empty and gameweeks_df[gameweeks_df['id'] == gw].iloc[0]['finished']]
     
     if finished_gws_in_run:
         logger.info(f"  > Updating master 'playerstats.csv' with data for finished GWs: {finished_gws_in_run}")
-        # Append new finished stats to the master file
         master_stats_path = os.path.join(BASE_DATA_PATH, 'playerstats.csv')
         new_finished_stats = playerstats_df[playerstats_df['gw'].isin(finished_gws_in_run)]
         
         if os.path.exists(master_stats_path):
             master_stats_df = pd.read_csv(master_stats_path)
-            # Drop old rows for these gameweeks to avoid duplicates before appending
             master_stats_df = master_stats_df[~master_stats_df['gw'].isin(finished_gws_in_run)]
             updated_df = pd.concat([master_stats_df, new_finished_stats], ignore_index=True)
         else:
