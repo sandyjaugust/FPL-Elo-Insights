@@ -3,6 +3,7 @@ player_code,player_id,first_name,second_name,web_name,team_code,position
 224117,666,Viktor,Gyökeres,Gyökeres,3,Forward
 469272,210,Loum,Tchaouna,Tchaouna,90,Midfielder
 444172,68,Will,Dennis,Dennis,91,Goalkeeper
+568791,69,Callan,McKenna,McKenna,91,Goalkeeper
 481283,688,James,Wright,Wright,7,Goalkeeper
 485337,677,Evann,Guessand,Guessand,7,Midfielder
 180804,198,Axel,Tuanzebe,Tuanzebe,90,Defender
@@ -64,9 +65,9 @@ player_code,player_id,first_name,second_name,web_name,team_code,position
 44699,218,Ashley,Barnes,Barnes,90,Forward
 220598,219,Michael,Obafemi,Obafemi,90,Forward
 457569,67,Đorđe,Petrović,Petrović,91,Goalkeeper
-568791,69,Callan,McKenna,McKenna,91,Goalkeeper
 495145,70,Alex,Paulsen,Paulsen,91,Goalkeeper
 477580,71,Illia,Zabarnyi,Zabarnyi,91,Defender
+221466,72,Marcos,Senesi Barón,Senesi,91,Defender
 154561,1,David,Raya Martín,Raya,3,Goalkeeper
 109745,2,Kepa,Arrizabalaga Revuelta,Arrizabalaga,3,Goalkeeper
 463748,3,Karl,Hein,Hein,3,Goalkeeper
@@ -112,7 +113,6 @@ player_code,player_id,first_name,second_name,web_name,team_code,position
 106468,43,Álex,Moreno Lopera,Alex Moreno,7,Defender
 515597,44,Lamare,Bogarde,Bogarde,7,Defender
 514315,45,Lino,da Cruz Sousa,Sousa,7,Defender
-221466,72,Marcos,Senesi Barón,Senesi,91,Defender
 54469,73,Adam,Smith,Smith,91,Defender
 494521,74,Adrien,Truffert,Truffert,91,Defender
 541462,75,Matai,Akinmboni,Akinmboni,91,Defender
@@ -122,8 +122,8 @@ player_code,player_id,first_name,second_name,web_name,team_code,position
 223911,79,Chris,Mepham,Mepham,91,Defender
 575901,80,Julio,Soler Barreto,Soler,91,Defender
 222683,81,Justin,Kluivert,Kluivert,91,Midfielder
-549329,195,Lucas,Pires Silva,Lucas Pires,90,Defender
 437730,82,Antoine,Semenyo,Semenyo,91,Midfielder
+549329,195,Lucas,Pires Silva,Lucas Pires,90,Defender
 201658,84,Marcus,Tavernier,Tavernier,91,Midfielder
 200785,85,Tyler,Adams,Adams,91,Midfielder
 111317,86,David,Brooks,Brooks,91,Midfielder
@@ -325,11 +325,11 @@ player_code,player_id,first_name,second_name,web_name,team_code,position
 174874,317,Joachim,Andersen,Andersen,54,Defender
 232892,318,Calvin,Bassey,Bassey,54,Defender
 219924,320,Issa,Diop,Diop,54,Defender
+246301,321,Jorge,Cuenca Barreno,J.Cuenca,54,Defender
 496208,391,Ben,Doak,Doak,91,Midfielder
 609873,305,Harrison,Armstrong,Armstrong,11,Midfielder
 428971,315,Steven,Benda,Benda,54,Goalkeeper
 166477,319,Timothy,Castagne,Castagne,54,Defender
-246301,321,Jorge,Cuenca Barreno,J.Cuenca,54,Defender
 167074,322,Kenny,Tete,Tete,54,Defender
 591385,323,Samuel,Amissah,Amissah,54,Defender
 153133,324,Alex,Iwobi,Iwobi,54,Midfielder
