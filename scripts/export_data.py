@@ -159,7 +159,10 @@ def main():
 
         # Fetch playerstats for the specific gameweek
         gw_player_stats_df = fetch_data_since_gameweek('playerstats', gw, gameweek_col='gw')
-        gw_player_stats_df = gw_player_stats_df[gw_player_stats_df['gw'] == gw].copy()
+
+        # --- FIX: Check if the DataFrame is empty before filtering ---
+        if not gw_player_stats_df.empty:
+            gw_player_stats_df = gw_player_stats_df[gw_player_stats_df['gw'] == gw].copy()
 
         relevant_match_ids = gw_finished_matches_df['match_id'].unique().tolist()
         player_match_stats_df = fetch_data_by_ids('playermatchstats', 'match_id', relevant_match_ids)
@@ -191,8 +194,12 @@ def main():
             
             tourn_team_codes = pd.concat([tourn_home_teams, tourn_away_teams]).unique().tolist()
             players_in_tourn_teams = all_players_df[all_players_df['team_code'].isin(tourn_team_codes)]['player_id'].unique().tolist()
-            tourn_player_stats = gw_player_stats_df[gw_player_stats_df['id'].isin(players_in_tourn_teams)]
-
+            
+            # --- FIX: Check for empty DataFrame before filtering ---
+            tourn_player_stats = pd.DataFrame() # Initialize empty
+            if not gw_player_stats_df.empty:
+                tourn_player_stats = gw_player_stats_df[gw_player_stats_df['id'].isin(players_in_tourn_teams)]
+            
             update_csv(tourn_finished_matches, os.path.join(tourn_dir, "matches.csv"), unique_cols=['match_id'])
             update_csv(tourn_fixtures, os.path.join(tourn_dir, "fixtures.csv"), unique_cols=['match_id'])
             update_csv(tourn_pms, os.path.join(tourn_dir, "playermatchstats.csv"), unique_cols=['player_id', 'match_id'])
@@ -206,7 +213,6 @@ def main():
     update_csv(all_teams_df, os.path.join(season_path, 'teams.csv'), unique_cols=['id'])
     update_csv(all_gameweeks_df, os.path.join(season_path, 'gameweek_summaries.csv'), unique_cols=['id'])
 
-    # --- FIX: Only update master playerstats with data from finished gameweeks ---
     finished_gameweeks = [gw for gw in all_gws if gw <= start_gameweek]
     if finished_gameweeks:
         print(f"  > Updating master 'playerstats.csv' with data for finished GWs: {finished_gameweeks}")
@@ -219,3 +225,11 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+### Summary of Changes
+
+* **Explicit Check**: The line `if not gw_player_stats_df.empty:` was added before the filtering step. This ensures that the code inside the `if` block is only executed if there is data to process.
+* **Safe Filtering**: This check prevents the `KeyError` by making sure the `'gw'` column is only accessed on a DataFrame that actually has data and therefore columns.
+* **Initialization**: A small change was also made to initialize `tourn_player_stats` as an empty DataFrame to handle cases where no players from that tournament have stats, preventing potential issues later on.
+
+This fix should allow the script to handle cases where there are no new player stats for a particular gameweek without crashing.
