@@ -74,6 +74,17 @@ def main():
         logger.error("❌ Critical: One or more essential tables could not be fetched. Aborting.")
         sys.exit(1)
 
+    # --- NEW: Extract tournament slug from match_id to create the 'tournament' column ---
+    def extract_tournament_slug(match_id):
+        # Check against the keys in your map to find the correct slug
+        for slug in TOURNAMENT_NAME_MAP.keys():
+            if slug in match_id:
+                return slug
+        return None # Return None if no known slug is found
+
+    matches_df['tournament'] = matches_df['match_id'].apply(extract_tournament_slug)
+    # --- END NEW CODE ---
+
     # --- 1. Update Master Data Files (Unconditional) ---
     logger.info("\n--- 1. Updating Master Data Files ---")
     os.makedirs(BASE_DATA_PATH, exist_ok=True)
@@ -91,25 +102,18 @@ def main():
         folder_name = TOURNAMENT_NAME_MAP.get(slug, slug.replace('-', ' ').title())
         logger.info(f"Processing Tournament: {folder_name}...")
         
-        # Get all matches for the entire tournament first
         tournament_matches = matches_df[matches_df['tournament'] == slug]
-        
-        # Find all unique gameweeks WITHIN this tournament
         gws_in_tournament = sorted(tournament_matches['gameweek'].dropna().unique().astype(int))
 
-        # Loop through each gameweek and create a nested folder
         for gw in gws_in_tournament:
             logger.info(f"  > Processing GW{gw} for {folder_name}...")
             
-            # Create the nested path: .../Premier League/GW1/
             tournament_gw_path = os.path.join(BASE_DATA_PATH, 'By Tournament', folder_name, f'GW{gw}')
             os.makedirs(tournament_gw_path, exist_ok=True)
             
-            # Filter the tournament matches for the current gameweek
             gw_tournament_matches = tournament_matches[tournament_matches['gameweek'] == gw]
             gw_tournament_matches.to_csv(os.path.join(tournament_gw_path, 'matches.csv'), index=False)
 
-            # Filter playermatchstats for these specific matches
             match_ids = gw_tournament_matches['match_id'].unique().tolist()
             tournament_playerstats = playermatchstats_df[playermatchstats_df['match_id'].isin(match_ids)]
             tournament_playerstats.to_csv(os.path.join(tournament_gw_path, 'playermatchstats.csv'), index=False)
