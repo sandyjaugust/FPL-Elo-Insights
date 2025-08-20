@@ -90,7 +90,7 @@ def fetch_data_since_gameweek(table_name: str, start_gameweek: int, gameweek_col
     except Exception as e:
         print(f"  ERROR fetching from '{table_name}': {e}")
         return pd.DataFrame()
-    
+
 def fetch_data_by_ids(table_name: str, column: str, ids: list) -> pd.DataFrame:
     """Fetches records from a table where a column value is in the provided list of IDs."""
     if not ids: return pd.DataFrame()
@@ -161,18 +161,18 @@ def main():
 
     print("\n--- Pre-processing fetched data ---")
     matches_df['tournament'] = matches_df['match_id'].apply(lambda mid: get_tournament_name_from_id(mid, TOURNAMENT_NAME_MAP))
-    
+
     all_gws = sorted(matches_df['gameweek'].dropna().unique())
     print(f"Found data for new gameweeks: {all_gws}")
-    
+
     for gw in all_gws:
         gw = int(gw)
         print(f"\n--- Saving data for GW{gw} ---")
-        
+
         gw_matches_df = matches_df[matches_df['gameweek'] == gw]
         gw_finished_matches_df = gw_matches_df[gw_matches_df['finished'] == True].copy()
         gw_fixtures_df = gw_matches_df[gw_matches_df['finished'] == False].copy()
-        
+
         # --- REVISED LOGIC: Only fetch players/teams relevant to this gameweek ---
         relevant_team_codes = pd.concat([gw_matches_df['home_team'], gw_matches_df['away_team']]).dropna().unique().tolist()
         relevant_players_df = fetch_data_by_ids('players', 'team_code', relevant_team_codes)
@@ -194,29 +194,29 @@ def main():
         update_csv(relevant_teams_df, os.path.join(gw_dir, "teams.csv"), unique_cols=['id'])
         update_csv(gw_player_stats_df, os.path.join(gw_dir, "playerstats.csv"), unique_cols=['id', 'gw'])
         print(f"  > Saved data to '{gw_dir}'")
-        
+
         for tourn, group in gw_matches_df.groupby('tournament'):
             tourn_dir = os.path.join(season_path, "By Tournament", tourn, f"GW{gw}")
-            
+
             tourn_home_teams = group['home_team']
             tourn_away_teams = group['away_team']
 
             tourn_finished_matches = group[group['finished'] == True]
             tourn_fixtures = group[group['finished'] == False]
-            
+
             tourn_match_ids = tourn_finished_matches['match_id'].unique().tolist()
-            
+
             if player_match_stats_df.empty:
                 tourn_pms = pd.DataFrame()
             else:
                 tourn_pms = player_match_stats_df[player_match_stats_df['match_id'].isin(tourn_match_ids)]
-            
+
             tourn_team_codes = pd.concat([tourn_home_teams, tourn_away_teams]).unique().tolist()
-            
+
             # --- REVISED LOGIC: Filter the newly fetched player/team data for each tournament
             tourn_relevant_players = relevant_players_df[relevant_players_df['team_code'].isin(tourn_team_codes)]
             tourn_relevant_teams = relevant_teams_df[relevant_teams_df['id'].isin(tourn_team_codes)]
-            
+
             tourn_player_stats = pd.DataFrame()
             if not gw_player_stats_df.empty:
                 players_in_tourn_teams = tourn_relevant_players['player_id'].unique().tolist()
@@ -236,15 +236,16 @@ def main():
     update_csv(all_players_df, os.path.join(season_path, 'players.csv'), unique_cols=['player_id'])
     update_csv(all_teams_df, os.path.join(season_path, 'teams.csv'), unique_cols=['id'])
     update_csv(all_gameweeks_df, os.path.join(season_path, 'gameweek_summaries.csv'), unique_cols=['id'])
-    
+
     finished_gameweeks_in_run = [gw for gw in all_gws if gw <= start_gameweek]
-    if finished_gameweeks_in_run:
+    # ⭐️ FIXED LINE ⭐️
+    if finished_gameweeks_in_run and not recent_player_stats_df.empty:
         print(f"  > Updating master 'playerstats.csv' with data for finished GWs: {finished_gameweeks_in_run}")
         finished_player_stats_df = recent_player_stats_df[recent_player_stats_df['gw'].isin(finished_gameweeks_in_run)]
         update_csv(finished_player_stats_df, os.path.join(season_path, 'playerstats.csv'), unique_cols=['id', 'gw'])
     else:
         print("  > No new finished gameweek playerstats to update in master file.")
-    
+
     print(f"  > Master files in '{season_path}' updated.")
 
     print("\n--- Automated data update process completed successfully! ---")
