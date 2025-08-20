@@ -58,16 +58,14 @@ def fetch_data_from_table(supabase: Client, table_name: str, start_gw: int = Non
     Fetches data from a specified Supabase table.
     Performs an incremental load if start_gw is provided and the table has a gameweek column.
     """
-    is_incremental = start_gw is not None and start_gw > 1 and table_name in ['matches', 'playerstats']
+    # *** BUG FIX: Only perform incremental load for 'playerstats', as 'matches' filter is failing. ***
+    # 'matches' is a small table, so fetching it fully is acceptable.
+    is_incremental = start_gw is not None and start_gw > 1 and table_name in ['playerstats']
     
     if is_incremental:
         logger.info(f"Fetching data from '{table_name}' for GW{start_gw} onwards (Incremental Load)...")
-        # *** BUG FIX: Use the correct column name for filtering each table ***
-        if table_name == 'matches':
-            filter_column = 'event'
-        else: # Assumes 'playerstats'
-            filter_column = 'gw'
-        
+        # The filter column for playerstats is 'gw'
+        filter_column = 'gw'
         query = supabase.table(table_name).select("*").gte(filter_column, int(start_gw))
     else:
         logger.info(f"Fetching all records from master table: '{table_name}'...")
@@ -96,6 +94,7 @@ def main():
     gameweeks_df = fetch_data_from_table(supabase, 'gameweeks')
     
     logger.info(f"\n--- Processing data for Gameweek {start_gameweek} and onwards ---")
+    # Fetch matches using the updated logic (will now be a full fetch)
     matches_df = fetch_data_from_table(supabase, 'matches', start_gameweek)
     playerstats_df = fetch_data_from_table(supabase, 'playerstats', start_gameweek)
     
@@ -118,6 +117,7 @@ def main():
         
         gw_info = gw_info_df.iloc[0]
         gw_playerstats = playerstats_df[playerstats_df['gw'] == gw]
+        # This filter will now work on the fully-loaded matches_df
         gw_matches = matches_df[matches_df['event'] == gw]
         
         gw_base_path = os.path.join(BASE_DATA_PATH, 'By Gameweek', f'GW{gw}')
