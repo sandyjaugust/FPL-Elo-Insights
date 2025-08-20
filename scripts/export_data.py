@@ -78,6 +78,14 @@ def main():
         return None
     matches_df['tournament'] = matches_df['match_id'].apply(extract_tournament_slug)
 
+    # --- NEW: Filter out all friendlies and gameweek 0 matches ---
+    logger.info("\nFiltering out friendlies and pre-season (GW0) matches...")
+    initial_match_count = len(matches_df)
+    matches_df = matches_df[(matches_df['gameweek'] != 0) & (matches_df['tournament'] != 'friendly')]
+    final_match_count = len(matches_df)
+    logger.info(f"  > Removed {initial_match_count - final_match_count} matches. Processing {final_match_count} relevant matches.")
+    # --- END NEW CODE ---
+
     # --- 1. Update Master Data Files (Unconditional) ---
     logger.info("\n--- 1. Updating Master Data Files ---")
     os.makedirs(BASE_DATA_PATH, exist_ok=True)
@@ -108,11 +116,9 @@ def main():
             match_ids = gw_tournament_matches['match_id'].unique().tolist()
             gw_tournament_playerstats = playermatchstats_df[playermatchstats_df['match_id'].isin(match_ids)]
             
-            # Save matches and playermatchstats for ALL gameweeks (in-progress or finished)
             gw_tournament_matches.to_csv(os.path.join(tournament_gw_path, 'matches.csv'), index=False)
             gw_tournament_playerstats.to_csv(os.path.join(tournament_gw_path, 'playermatchstats.csv'), index=False)
 
-            # For active gameweeks, ALSO save fixtures and snapshots
             if not is_finished:
                 gw_tournament_matches.to_csv(os.path.join(tournament_gw_path, 'fixtures.csv'), index=False)
                 players_df.to_csv(os.path.join(tournament_gw_path, 'players.csv'), index=False)
@@ -135,12 +141,10 @@ def main():
         match_ids = gw_matches['match_id'].unique().tolist()
         gw_playermatchstats = playermatchstats_df[playermatchstats_df['match_id'].isin(match_ids)]
         
-        # Save matches and playermatchstats for ALL gameweeks (in-progress or finished)
         logger.info("  > Saving matches and player-match-stats...")
         gw_matches.to_csv(os.path.join(gw_path, 'matches.csv'), index=False)
         gw_playermatchstats.to_csv(os.path.join(gw_path, 'playermatchstats.csv'), index=False)
         
-        # For active gameweeks, ALSO save fixtures and data snapshots
         if not is_finished:
             logger.info("  > Gameweek is active. Saving fixtures and data snapshots...")
             gw_matches.to_csv(os.path.join(gw_path, 'fixtures.csv'), index=False)
