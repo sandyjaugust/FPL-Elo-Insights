@@ -225,11 +225,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-### Summary of Changes
-
-* **Explicit Check**: The line `if not gw_player_stats_df.empty:` was added before the filtering step. This ensures that the code inside the `if` block is only executed if there is data to process.
-* **Safe Filtering**: This check prevents the `KeyError` by making sure the `'gw'` column is only accessed on a DataFrame that actually has data and therefore columns.
-* **Initialization**: A small change was also made to initialize `tourn_player_stats` as an empty DataFrame to handle cases where no players from that tournament have stats, preventing potential issues later on.
-
-This fix should allow the script to handle cases where there are no new player stats for a particular gameweek without crashing.
