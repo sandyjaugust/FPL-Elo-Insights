@@ -1,3 +1,5 @@
+# scripts/export_data.py
+
 import os
 import sys
 import pandas as pd
@@ -39,7 +41,6 @@ def get_start_gameweek() -> int:
             # Find the last gameweek that is marked as finished
             finished_gws = summaries_df[summaries_df['finished'] == True]
             if not finished_gws.empty:
-                # *** BUG FIX 1: Use 'id' column from gameweeks table, not 'gw' ***
                 latest_finished_gw = finished_gws['id'].max()
                 start_gw = int(latest_finished_gw) + 1
                 logger.info(f"  > Latest FINISHED gameweek in local file: {latest_finished_gw}. Processing from GW{start_gw}.")
@@ -55,13 +56,19 @@ def get_start_gameweek() -> int:
 def fetch_data_from_table(supabase: Client, table_name: str, start_gw: int = None) -> pd.DataFrame:
     """
     Fetches data from a specified Supabase table.
-    Performs an incremental load if start_gw is provided and the table has a 'gw' column.
+    Performs an incremental load if start_gw is provided and the table has a gameweek column.
     """
     is_incremental = start_gw is not None and start_gw > 1 and table_name in ['matches', 'playerstats']
     
     if is_incremental:
         logger.info(f"Fetching data from '{table_name}' for GW{start_gw} onwards (Incremental Load)...")
-        query = supabase.table(table_name).select("*").gte('gw', int(start_gw))
+        # *** BUG FIX: Use the correct column name for filtering each table ***
+        if table_name == 'matches':
+            filter_column = 'event'
+        else: # Assumes 'playerstats'
+            filter_column = 'gw'
+        
+        query = supabase.table(table_name).select("*").gte(filter_column, int(start_gw))
     else:
         logger.info(f"Fetching all records from master table: '{table_name}'...")
         query = supabase.table(table_name).select("*")
@@ -104,7 +111,6 @@ def main():
     for gw in new_gameweeks:
         logger.info(f"--- Saving data for GW{gw} ---")
         
-        # *** BUG FIX 2: Check if gw exists in gameweeks_df before processing ***
         gw_info_df = gameweeks_df[gameweeks_df['id'] == gw]
         if gw_info_df.empty:
             logger.warning(f"  > No official event found for GW{gw}. Skipping this gameweek.")
