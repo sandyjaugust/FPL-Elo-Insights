@@ -50,7 +50,7 @@ def main():
     gameweeks_df = fetch_full_table(supabase, 'gameweeks')
     matches_df = fetch_full_table(supabase, 'matches')
     playerstats_df = fetch_full_table(supabase, 'playerstats')
-    playermatchstats_df = fetch_full_table(supabase, 'playermatchstats') # New table
+    playermatchstats_df = fetch_full_table(supabase, 'playermatchstats')
     
     # Exit if essential data is missing
     if any(df.empty for df in [players_df, teams_df, gameweeks_df, playerstats_df]):
@@ -69,12 +69,10 @@ def main():
     # --- 3. Process and Save Data for Each Gameweek Folder ---
     logger.info("\n--- Populating individual gameweek folders based on status ---")
     
-    # Determine the latest gameweek to process (current or last finished)
     current_gw_series = gameweeks_df[gameweeks_df['is_current'] == True]
     if not current_gw_series.empty:
         latest_gameweek_to_process = current_gw_series['id'].iloc[0]
     else:
-        # Fallback if no GW is current (e.g., between seasons)
         latest_gameweek_to_process = gameweeks_df[gameweeks_df['finished'] == True]['id'].max()
 
     for gw in range(1, int(latest_gameweek_to_process) + 1):
@@ -88,11 +86,9 @@ def main():
 
         logger.info(f"Processing GW{gw} (Finished: {gw_info['finished']})...")
         
-        # Filter data for the current gameweek
         gw_matches = matches_df[matches_df['gameweek'] == gw]
 
         if not gw_info['finished']:
-            # For UNFINISHED gameweeks, save current stats and master lists
             logger.info("  > Saving playerstats, players, teams, and fixtures snapshots.")
             gw_playerstats = playerstats_df[playerstats_df['gw'] == gw]
             
@@ -102,10 +98,10 @@ def main():
             gw_matches.to_csv(os.path.join(gw_base_path, 'fixtures.csv'), index=False)
 
         else:
-            # For FINISHED gameweeks, save final match results and detailed stats
             logger.info("  > Saving final matches and playermatchstats.")
-            # *** BUG FIX: Use 'gw' column for playermatchstats, not 'gameweek' ***
-            gw_playermatchstats = playermatchstats_df[playermatchstats_df['gw'] == gw]
+            # *** BUG FIX: Filter playermatchstats by the match_ids from the current gameweek ***
+            match_ids_for_gw = gw_matches['match_id'].unique().tolist()
+            gw_playermatchstats = playermatchstats_df[playermatchstats_df['match_id'].isin(match_ids_for_gw)]
             
             gw_matches.to_csv(os.path.join(gw_base_path, 'matches.csv'), index=False)
             gw_playermatchstats.to_csv(os.path.join(gw_base_path, 'playermatchstats.csv'), index=False)
