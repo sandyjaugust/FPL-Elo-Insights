@@ -128,11 +128,21 @@ def main():
     gameweek_summaries_path = os.path.join(season_path, 'gameweek_summaries.csv')
     if os.path.exists(gameweek_summaries_path):
         print("Local 'gameweek_summaries.csv' found. Determining start gameweek from local file.")
+        # --- NEW, CORRECTED LOGIC is here ---
         try:
             local_gws_df = pd.read_csv(gameweek_summaries_path)
-            latest_local_gw = int(local_gws_df['id'].max())
-            start_gameweek = latest_local_gw
-            print(f"  > Latest gameweek found in local file: {latest_local_gw}.")
+            # First, filter for only the rows where 'finished' is True
+            finished_gws_df = local_gws_df[local_gws_df['finished'] == True]
+
+            if not finished_gws_df.empty:
+                # Then, find the max 'id' from that filtered set
+                latest_finished_gw = int(finished_gws_df['id'].max())
+                start_gameweek = latest_finished_gw
+                print(f"  > Latest FINISHED gameweek in local file: {latest_finished_gw}. Processing from there.")
+            else:
+                # If no GWs are finished, start from GW1
+                print("  > No finished gameweeks found in local file. Starting from GW1.")
+                start_gameweek = 1
         except Exception as e:
             print(f"  ERROR: Could not read local file: {e}. Falling back to database query.")
             start_gameweek = get_latest_gameweek_from_table('matches', finished_only=True)
@@ -238,7 +248,6 @@ def main():
     update_csv(all_gameweeks_df, os.path.join(season_path, 'gameweek_summaries.csv'), unique_cols=['id'])
 
     finished_gameweeks_in_run = [gw for gw in all_gws if gw <= start_gameweek]
-    # ⭐️ FIXED LINE ⭐️
     if finished_gameweeks_in_run and not recent_player_stats_df.empty:
         print(f"  > Updating master 'playerstats.csv' with data for finished GWs: {finished_gameweeks_in_run}")
         finished_player_stats_df = recent_player_stats_df[recent_player_stats_df['gw'].isin(finished_gameweeks_in_run)]
