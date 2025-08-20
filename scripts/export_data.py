@@ -134,23 +134,21 @@ def main():
     print(f"\n--- Processing data for Gameweek {start_gameweek} and onwards ---")
 
     matches_df = fetch_data_since_gameweek('matches', start_gameweek)
-    recent_player_stats_df = fetch_data_since_gameweek('playerstats', start_gameweek, gameweek_col='gw')
 
     if matches_df.empty:
         print("\nNo new/upcoming match data to process. Updating master files only.")
         update_csv(all_players_df, os.path.join(season_path, 'players.csv'), unique_cols=['player_id'])
         update_csv(all_teams_df, os.path.join(season_path, 'teams.csv'), unique_cols=['id'])
         update_csv(all_gameweeks_df, os.path.join(season_path, 'gameweek_summaries.csv'), unique_cols=['id'])
-        update_csv(recent_player_stats_df, os.path.join(season_path, 'playerstats.csv'), unique_cols=['id', 'gw'])
         print("\n--- Process complete. ---")
         return
 
     print("\n--- Pre-processing fetched data ---")
     matches_df['tournament'] = matches_df['match_id'].apply(lambda mid: get_tournament_name_from_id(mid, TOURNAMENT_NAME_MAP))
-    
+
     all_gws = sorted(matches_df['gameweek'].dropna().unique())
     print(f"Found data for new gameweeks: {all_gws}")
-    
+
     for gw in all_gws:
         gw = int(gw)
         print(f"\n--- Saving data for GW{gw} ---")
@@ -158,7 +156,10 @@ def main():
         gw_matches_df = matches_df[matches_df['gameweek'] == gw]
         gw_finished_matches_df = gw_matches_df[gw_matches_df['finished'] == True].copy()
         gw_fixtures_df = gw_matches_df[gw_matches_df['finished'] == False].copy()
-        gw_player_stats_df = recent_player_stats_df[recent_player_stats_df['gw'] == gw].copy()
+
+        # Fetch playerstats for the specific gameweek
+        gw_player_stats_df = fetch_data_since_gameweek('playerstats', gw, gameweek_col='gw')
+        gw_player_stats_df = gw_player_stats_df[gw_player_stats_df['gw'] == gw].copy()
 
         relevant_match_ids = gw_finished_matches_df['match_id'].unique().tolist()
         player_match_stats_df = fetch_data_by_ids('playermatchstats', 'match_id', relevant_match_ids)
@@ -183,14 +184,10 @@ def main():
             
             tourn_match_ids = tourn_finished_matches['match_id'].unique().tolist()
             
-            # --- FIX: Handle cases with no finished matches ---
-            # If the main player_match_stats_df is empty, the tournament-specific one must also be empty.
-            # Otherwise, filter it as normal.
             if player_match_stats_df.empty:
                 tourn_pms = pd.DataFrame()
             else:
                 tourn_pms = player_match_stats_df[player_match_stats_df['match_id'].isin(tourn_match_ids)]
-            # --- END OF FIX ---
             
             tourn_team_codes = pd.concat([tourn_home_teams, tourn_away_teams]).unique().tolist()
             players_in_tourn_teams = all_players_df[all_players_df['team_code'].isin(tourn_team_codes)]['player_id'].unique().tolist()
@@ -208,8 +205,15 @@ def main():
     update_csv(all_players_df, os.path.join(season_path, 'players.csv'), unique_cols=['player_id'])
     update_csv(all_teams_df, os.path.join(season_path, 'teams.csv'), unique_cols=['id'])
     update_csv(all_gameweeks_df, os.path.join(season_path, 'gameweek_summaries.csv'), unique_cols=['id'])
-    update_csv(recent_player_stats_df, os.path.join(season_path, 'playerstats.csv'), unique_cols=['id', 'gw'])
-    print(f"  > Master files in '{season_path}' updated.")
+
+    # --- FIX: Only update master playerstats with data from finished gameweeks ---
+    finished_gameweeks = [gw for gw in all_gws if gw <= start_gameweek]
+    if finished_gameweeks:
+        print(f"  > Updating master 'playerstats.csv' with data for finished GWs: {finished_gameweeks}")
+        finished_player_stats_df = fetch_data_since_gameweek('playerstats', min(finished_gameweeks), gameweek_col='gw')
+        update_csv(finished_player_stats_df, os.path.join(season_path, 'playerstats.csv'), unique_cols=['id', 'gw'])
+    else:
+        print("  > No new finished gameweek playerstats to update in master file.")
 
     print("\n--- Automated data update process completed successfully! ---")
 
