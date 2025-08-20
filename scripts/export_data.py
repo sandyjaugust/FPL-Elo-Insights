@@ -6,8 +6,16 @@ import logging
 from datetime import datetime, timezone
 
 # --- Configuration ---
-SEASON_NAME = "2025-2026"
-BASE_DATA_PATH = os.path.join('data', SEASON_NAME)
+SEASON = "2025-2026"
+BASE_DATA_PATH = os.path.join('data', SEASON)
+TOURNAMENT_NAME_MAP = {
+    'friendly': 'Friendlies',
+    'premier-league': 'Premier League',
+    'champions-league': 'Champions League',
+    'prem': 'Premier League',
+    'community-shield': 'Community Shield',
+    'uefa-super-cup': 'Uefa Super Cup'
+}
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -47,7 +55,7 @@ def main():
     Runs the full data export pipeline: updates master files, populates structured
     folders, and adds snapshots to active gameweeks.
     """
-    logger.info(f"--- Starting Comprehensive Data Update for Season {SEASON_NAME} ---")
+    logger.info(f"--- Starting Comprehensive Data Update for Season {SEASON} ---")
     logger.info(f"Timestamp: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
 
     supabase = initialize_supabase_client()
@@ -59,13 +67,23 @@ def main():
     teams_df = fetch_all_rows(supabase, 'teams')
     matches_df = fetch_all_rows(supabase, 'matches')
     playermatchstats_df = fetch_all_rows(supabase, 'playermatchstats')
-    tournaments_df = fetch_all_rows(supabase, 'tournaments')
 
     # Exit if essential data is missing
-    essential_dfs = [gameweeks_df, players_df, playerstats_df, teams_df, matches_df, tournaments_df]
+    essential_dfs = [gameweeks_df, players_df, playerstats_df, teams_df, matches_df]
     if any(df.empty for df in essential_dfs):
         logger.error("❌ Critical: One or more essential tables could not be fetched. Aborting.")
         sys.exit(1)
+
+    # --- NEW: Extract tournament slug from match_id to create the 'tournament' column ---
+    def extract_tournament_slug(match_id):
+        # Check against the keys in your map to find the correct slug
+        for slug in TOURNAMENT_NAME_MAP.keys():
+            if slug in match_id:
+                return slug
+        return None # Return None if no known slug is found
+
+    matches_df['tournament'] = matches_df['match_id'].apply(extract_tournament_slug)
+    # --- END NEW CODE ---
 
     # --- 1. Update Master Data Files (Unconditional) ---
     logger.info("\n--- 1. Updating Master Data Files ---")
@@ -76,27 +94,34 @@ def main():
     teams_df.to_csv(os.path.join(BASE_DATA_PATH, 'teams.csv'), index=False)
     logger.info("  > Master files updated successfully.")
 
-    # --- 2. Populate 'By Tournament' Folders (Unconditional) ---
+    # --- 2. Populate 'By Tournament' Folders with Gameweek Subfolders ---
     logger.info("\n--- 2. Populating 'By Tournament' Folders ---")
-    for _, tournament in tournaments_df.iterrows():
-        tournament_id = tournament['id']
-        tournament_name = tournament['name']
-        logger.info(f"Processing Tournament: {tournament_name}...")
+    unique_tournaments = matches_df['tournament'].dropna().unique()
+
+    for slug in unique_tournaments:
+        folder_name = TOURNAMENT_NAME_MAP.get(slug, slug.replace('-', ' ').title())
+        logger.info(f"Processing Tournament: {folder_name}...")
         
-        tournament_path = os.path.join(BASE_DATA_PATH, 'By Tournament', tournament_name)
-        os.makedirs(tournament_path, exist_ok=True)
-        
-        tournament_matches = matches_df[matches_df['tournament'] == tournament_id]
-        tournament_matches.to_csv(os.path.join(tournament_path, 'matches.csv'), index=False)
-        
-        match_ids = tournament_matches['match_id'].unique().tolist()
-        tournament_playerstats = playermatchstats_df[playermatchstats_df['match_id'].isin(match_ids)]
-        tournament_playerstats.to_csv(os.path.join(tournament_path, 'playermatchstats.csv'), index=False)
+        tournament_matches = matches_df[matches_df['tournament'] == slug]
+        gws_in_tournament = sorted(tournament_matches['gameweek'].dropna().unique().astype(int))
+
+        for gw in gws_in_tournament:
+            logger.info(f"  > Processing GW{gw} for {folder_name}...")
+            
+            tournament_gw_path = os.path.join(BASE_DATA_PATH, 'By Tournament', folder_name, f'GW{gw}')
+            os.makedirs(tournament_gw_path, exist_ok=True)
+            
+            gw_tournament_matches = tournament_matches[tournament_matches['gameweek'] == gw]
+            gw_tournament_matches.to_csv(os.path.join(tournament_gw_path, 'matches.csv'), index=False)
+
+            match_ids = gw_tournament_matches['match_id'].unique().tolist()
+            tournament_playerstats = playermatchstats_df[playermatchstats_df['match_id'].isin(match_ids)]
+            tournament_playerstats.to_csv(os.path.join(tournament_gw_path, 'playermatchstats.csv'), index=False)
 
     # --- 3. Populate 'By Gameweek' Folders (with Conditional Snapshots) ---
     logger.info("\n--- 3. Populating 'By Gameweek' Folders ---")
     unique_gameweeks = sorted(gameweeks_df['id'].dropna().unique().astype(int))
-    
+
     for gw in unique_gameweeks:
         gw_info = gameweeks_df[gameweeks_df['id'] == gw].iloc[0]
         is_finished = gw_info['finished']
@@ -105,7 +130,6 @@ def main():
         gw_path = os.path.join(BASE_DATA_PATH, 'By Gameweek', f'GW{gw}')
         os.makedirs(gw_path, exist_ok=True)
         
-        # Unconditionally save match and player match stats
         gw_matches = matches_df[matches_df['gameweek'] == gw]
         gw_matches.to_csv(os.path.join(gw_path, 'matches.csv'), index=False)
         
@@ -113,13 +137,11 @@ def main():
         gw_playerstats = playermatchstats_df[playermatchstats_df['match_id'].isin(match_ids)]
         gw_playerstats.to_csv(os.path.join(gw_path, 'playermatchstats.csv'), index=False)
         
-        # Conditionally save snapshots for active gameweeks
         if not is_finished:
             logger.info(f"  > Gameweek is active. Saving player, team, and stats snapshots.")
             players_df.to_csv(os.path.join(gw_path, 'players.csv'), index=False)
             teams_df.to_csv(os.path.join(gw_path, 'teams.csv'), index=False)
             
-            # Filter playerstats for the specific gameweek for the snapshot
             gw_playerstats_snapshot = playerstats_df[playerstats_df['gw'] == gw]
             gw_playerstats_snapshot.to_csv(os.path.join(gw_path, 'playerstats.csv'), index=False)
 
