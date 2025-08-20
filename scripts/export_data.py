@@ -134,21 +134,25 @@ def main():
     print(f"\n--- Processing data for Gameweek {start_gameweek} and onwards ---")
 
     matches_df = fetch_data_since_gameweek('matches', start_gameweek)
+    
+    # --- FIX 1: Fetch all player stats for the relevant period in one go ---
+    recent_player_stats_df = fetch_data_since_gameweek('playerstats', start_gameweek, gameweek_col='gw')
 
     if matches_df.empty:
         print("\nNo new/upcoming match data to process. Updating master files only.")
         update_csv(all_players_df, os.path.join(season_path, 'players.csv'), unique_cols=['player_id'])
         update_csv(all_teams_df, os.path.join(season_path, 'teams.csv'), unique_cols=['id'])
         update_csv(all_gameweeks_df, os.path.join(season_path, 'gameweek_summaries.csv'), unique_cols=['id'])
+        update_csv(recent_player_stats_df, os.path.join(season_path, 'playerstats.csv'), unique_cols=['id', 'gw'])
         print("\n--- Process complete. ---")
         return
 
     print("\n--- Pre-processing fetched data ---")
     matches_df['tournament'] = matches_df['match_id'].apply(lambda mid: get_tournament_name_from_id(mid, TOURNAMENT_NAME_MAP))
-
+    
     all_gws = sorted(matches_df['gameweek'].dropna().unique())
     print(f"Found data for new gameweeks: {all_gws}")
-
+    
     for gw in all_gws:
         gw = int(gw)
         print(f"\n--- Saving data for GW{gw} ---")
@@ -156,13 +160,11 @@ def main():
         gw_matches_df = matches_df[matches_df['gameweek'] == gw]
         gw_finished_matches_df = gw_matches_df[gw_matches_df['finished'] == True].copy()
         gw_fixtures_df = gw_matches_df[gw_matches_df['finished'] == False].copy()
-
-        # Fetch playerstats for the specific gameweek
-        gw_player_stats_df = fetch_data_since_gameweek('playerstats', gw, gameweek_col='gw')
-
-        # --- FIX: Check if the DataFrame is empty before filtering ---
-        if not gw_player_stats_df.empty:
-            gw_player_stats_df = gw_player_stats_df[gw_player_stats_df['gw'] == gw].copy()
+        
+        # --- FIX 2: Check if DataFrame is empty before trying to filter ---
+        gw_player_stats_df = pd.DataFrame()
+        if not recent_player_stats_df.empty:
+            gw_player_stats_df = recent_player_stats_df[recent_player_stats_df['gw'] == gw].copy()
 
         relevant_match_ids = gw_finished_matches_df['match_id'].unique().tolist()
         player_match_stats_df = fetch_data_by_ids('playermatchstats', 'match_id', relevant_match_ids)
@@ -187,19 +189,21 @@ def main():
             
             tourn_match_ids = tourn_finished_matches['match_id'].unique().tolist()
             
+            # --- FIX: Handle cases with no finished matches ---
             if player_match_stats_df.empty:
                 tourn_pms = pd.DataFrame()
             else:
                 tourn_pms = player_match_stats_df[player_match_stats_df['match_id'].isin(tourn_match_ids)]
+            # --- END OF FIX ---
             
             tourn_team_codes = pd.concat([tourn_home_teams, tourn_away_teams]).unique().tolist()
             players_in_tourn_teams = all_players_df[all_players_df['team_code'].isin(tourn_team_codes)]['player_id'].unique().tolist()
             
-            # --- FIX: Check for empty DataFrame before filtering ---
-            tourn_player_stats = pd.DataFrame() # Initialize empty
+            # --- FIX 3: Check if DataFrame is empty before trying to filter ---
+            tourn_player_stats = pd.DataFrame()
             if not gw_player_stats_df.empty:
                 tourn_player_stats = gw_player_stats_df[gw_player_stats_df['id'].isin(players_in_tourn_teams)]
-            
+
             update_csv(tourn_finished_matches, os.path.join(tourn_dir, "matches.csv"), unique_cols=['match_id'])
             update_csv(tourn_fixtures, os.path.join(tourn_dir, "fixtures.csv"), unique_cols=['match_id'])
             update_csv(tourn_pms, os.path.join(tourn_dir, "playermatchstats.csv"), unique_cols=['player_id', 'match_id'])
@@ -212,14 +216,17 @@ def main():
     update_csv(all_players_df, os.path.join(season_path, 'players.csv'), unique_cols=['player_id'])
     update_csv(all_teams_df, os.path.join(season_path, 'teams.csv'), unique_cols=['id'])
     update_csv(all_gameweeks_df, os.path.join(season_path, 'gameweek_summaries.csv'), unique_cols=['id'])
-
-    finished_gameweeks = [gw for gw in all_gws if gw <= start_gameweek]
-    if finished_gameweeks:
-        print(f"  > Updating master 'playerstats.csv' with data for finished GWs: {finished_gameweeks}")
-        finished_player_stats_df = fetch_data_since_gameweek('playerstats', min(finished_gameweeks), gameweek_col='gw')
+    
+    # --- FIX 4: Only update master file with finished gameweek stats ---
+    finished_gameweeks_in_run = [gw for gw in all_gws if gw <= start_gameweek]
+    if finished_gameweeks_in_run:
+        print(f"  > Updating master 'playerstats.csv' with data for finished GWs: {finished_gameweeks_in_run}")
+        finished_player_stats_df = recent_player_stats_df[recent_player_stats_df['gw'].isin(finished_gameweeks_in_run)]
         update_csv(finished_player_stats_df, os.path.join(season_path, 'playerstats.csv'), unique_cols=['id', 'gw'])
     else:
         print("  > No new finished gameweek playerstats to update in master file.")
+    
+    print(f"  > Master files in '{season_path}' updated.")
 
     print("\n--- Automated data update process completed successfully! ---")
 
