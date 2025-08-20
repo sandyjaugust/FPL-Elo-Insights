@@ -1,5 +1,3 @@
-# scripts/export_data.py
-
 import os
 import sys
 import pandas as pd
@@ -58,7 +56,7 @@ def fetch_data_from_table(supabase: Client, table_name: str, start_gw: int = Non
     Fetches data from a specified Supabase table.
     Performs an incremental load if start_gw is provided and the table has a gameweek column.
     """
-    # *** BUG FIX: Only perform incremental load for 'playerstats', as 'matches' filter is failing. ***
+    # Only perform incremental load for 'playerstats', as 'matches' filter is failing.
     # 'matches' is a small table, so fetching it fully is acceptable.
     is_incremental = start_gw is not None and start_gw > 1 and table_name in ['playerstats']
     
@@ -117,8 +115,8 @@ def main():
         
         gw_info = gw_info_df.iloc[0]
         gw_playerstats = playerstats_df[playerstats_df['gw'] == gw]
-        # This filter will now work on the fully-loaded matches_df
-        gw_matches = matches_df[matches_df['event'] == gw]
+        # *** BUG FIX: Use 'gameweek' column to filter the matches dataframe ***
+        gw_matches = matches_df[matches_df['gameweek'] == gw]
         
         gw_base_path = os.path.join(BASE_DATA_PATH, 'By Gameweek', f'GW{gw}')
         tournament_path = os.path.join(BASE_DATA_PATH, 'By Tournament', 'Premier League', f'GW{gw}')
