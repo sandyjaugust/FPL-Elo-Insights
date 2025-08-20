@@ -104,7 +104,8 @@ def main():
         else:
             # For FINISHED gameweeks, save final match results and detailed stats
             logger.info("  > Saving final matches and playermatchstats.")
-            gw_playermatchstats = playermatchstats_df[playermatchstats_df['gameweek'] == gw]
+            # *** BUG FIX: Use 'gw' column for playermatchstats, not 'gameweek' ***
+            gw_playermatchstats = playermatchstats_df[playermatchstats_df['gw'] == gw]
             
             gw_matches.to_csv(os.path.join(gw_base_path, 'matches.csv'), index=False)
             gw_playermatchstats.to_csv(os.path.join(gw_base_path, 'playermatchstats.csv'), index=False)
