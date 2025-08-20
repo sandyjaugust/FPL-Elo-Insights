@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 # --- Configuration ---
 SEASON_NAME = "2025-2026"
 BASE_DATA_PATH = os.path.join('data', SEASON_NAME)
-SUMMARY_FILE_PATH = os.path.join(BASE_DATA_PATH, 'gameweek_summaries.csv')
 
 # --- Logging Setup ---
 logging.basicConfig(
@@ -26,51 +25,11 @@ def initialize_supabase_client() -> Client:
         sys.exit(1)
     return create_client(supabase_url, supabase_key)
 
-def get_start_gameweek() -> int:
-    """
-    Determines the starting gameweek for the incremental load.
-    If a local summary file exists, it uses the latest finished gameweek.
-    Otherwise, it starts from gameweek 1.
-    """
-    if os.path.exists(SUMMARY_FILE_PATH):
-        logger.info(f"Local '{os.path.basename(SUMMARY_FILE_PATH)}' found. Determining start gameweek from local file.")
-        try:
-            summaries_df = pd.read_csv(SUMMARY_FILE_PATH)
-            # Find the last gameweek that is marked as finished
-            finished_gws = summaries_df[summaries_df['finished'] == True]
-            if not finished_gws.empty:
-                latest_finished_gw = finished_gws['id'].max()
-                start_gw = int(latest_finished_gw) + 1
-                logger.info(f"  > Latest FINISHED gameweek in local file: {latest_finished_gw}. Processing from GW{start_gw}.")
-                return start_gw
-        except KeyError:
-             logger.warning(f"Could not find 'id' or 'finished' column in summary file. Defaulting to full load from GW1.")
-        except Exception as e:
-            logger.warning(f"Could not process local summary file: {e}. Defaulting to full load from GW1.")
-    
-    logger.info("No valid local summary file found. Starting full process from GW1.")
-    return 1
-
-def fetch_data_from_table(supabase: Client, table_name: str, start_gw: int = None) -> pd.DataFrame:
-    """
-    Fetches data from a specified Supabase table.
-    Performs an incremental load if start_gw is provided and the table has a gameweek column.
-    """
-    # Only perform incremental load for 'playerstats', as 'matches' filter is failing.
-    # 'matches' is a small table, so fetching it fully is acceptable.
-    is_incremental = start_gw is not None and start_gw > 1 and table_name in ['playerstats']
-    
-    if is_incremental:
-        logger.info(f"Fetching data from '{table_name}' for GW{start_gw} onwards (Incremental Load)...")
-        # The filter column for playerstats is 'gw'
-        filter_column = 'gw'
-        query = supabase.table(table_name).select("*").gte(filter_column, int(start_gw))
-    else:
-        logger.info(f"Fetching all records from master table: '{table_name}'...")
-        query = supabase.table(table_name).select("*")
-
+def fetch_full_table(supabase: Client, table_name: str) -> pd.DataFrame:
+    """Fetches all data from a specified Supabase table."""
+    logger.info(f"Fetching all records from table: '{table_name}'...")
     try:
-        response = query.execute()
+        response = supabase.table(table_name).select("*").execute()
         df = pd.DataFrame(response.data)
         logger.info(f"  > Fetched {len(df)} total rows from '{table_name}'.")
         return df
@@ -84,79 +43,71 @@ def main():
     logger.info(f"Timestamp: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
 
     supabase = initialize_supabase_client()
-    start_gameweek = get_start_gameweek()
 
-    # --- Fetch Master & Incremental Data ---
-    players_df = fetch_data_from_table(supabase, 'players')
-    teams_df = fetch_data_from_table(supabase, 'teams')
-    gameweeks_df = fetch_data_from_table(supabase, 'gameweeks')
+    # --- 1. Fetch All Data from Supabase ---
+    players_df = fetch_full_table(supabase, 'players')
+    teams_df = fetch_full_table(supabase, 'teams')
+    gameweeks_df = fetch_full_table(supabase, 'gameweeks')
+    matches_df = fetch_full_table(supabase, 'matches')
+    playerstats_df = fetch_full_table(supabase, 'playerstats')
+    playermatchstats_df = fetch_full_table(supabase, 'playermatchstats') # New table
     
-    logger.info(f"\n--- Processing data for Gameweek {start_gameweek} and onwards ---")
-    # Fetch matches using the updated logic (will now be a full fetch)
-    matches_df = fetch_data_from_table(supabase, 'matches', start_gameweek)
-    playerstats_df = fetch_data_from_table(supabase, 'playerstats', start_gameweek)
+    # Exit if essential data is missing
+    if any(df.empty for df in [players_df, teams_df, gameweeks_df, playerstats_df]):
+        logger.error("One or more essential tables could not be fetched. Aborting.")
+        sys.exit(1)
+
+    # --- 2. Update All Master CSV Files ---
+    logger.info("\n--- Overwriting master data files with the latest data ---")
+    os.makedirs(BASE_DATA_PATH, exist_ok=True)
+    players_df.to_csv(os.path.join(BASE_DATA_PATH, 'players.csv'), index=False)
+    teams_df.to_csv(os.path.join(BASE_DATA_PATH, 'teams.csv'), index=False)
+    playerstats_df.to_csv(os.path.join(BASE_DATA_PATH, 'playerstats.csv'), index=False)
+    gameweeks_df.to_csv(os.path.join(BASE_DATA_PATH, 'gameweek_summaries.csv'), index=False)
+    logger.info("  > Master files updated successfully.")
+
+    # --- 3. Process and Save Data for Each Gameweek Folder ---
+    logger.info("\n--- Populating individual gameweek folders based on status ---")
     
-    if playerstats_df.empty and start_gameweek > 1:
-        logger.info("No new playerstats data found since last run. Process complete.")
-        return
+    # Determine the latest gameweek to process (current or last finished)
+    current_gw_series = gameweeks_df[gameweeks_df['is_current'] == True]
+    if not current_gw_series.empty:
+        latest_gameweek_to_process = current_gw_series['id'].iloc[0]
+    else:
+        # Fallback if no GW is current (e.g., between seasons)
+        latest_gameweek_to_process = gameweeks_df[gameweeks_df['finished'] == True]['id'].max()
 
-    logger.info("\n--- Pre-processing fetched data ---")
-    new_gameweeks = sorted(playerstats_df['gw'].unique())
-    logger.info(f"Found data for new gameweeks: {new_gameweeks}\n")
-
-    # --- Process and Save Data for Each Gameweek ---
-    for gw in new_gameweeks:
-        logger.info(f"--- Saving data for GW{gw} ---")
-        
+    for gw in range(1, int(latest_gameweek_to_process) + 1):
         gw_info_df = gameweeks_df[gameweeks_df['id'] == gw]
         if gw_info_df.empty:
-            logger.warning(f"  > No official event found for GW{gw}. Skipping this gameweek.")
             continue
         
         gw_info = gw_info_df.iloc[0]
-        gw_playerstats = playerstats_df[playerstats_df['gw'] == gw]
-        # *** BUG FIX: Use 'gameweek' column to filter the matches dataframe ***
-        gw_matches = matches_df[matches_df['gameweek'] == gw]
-        
         gw_base_path = os.path.join(BASE_DATA_PATH, 'By Gameweek', f'GW{gw}')
-        tournament_path = os.path.join(BASE_DATA_PATH, 'By Tournament', 'Premier League', f'GW{gw}')
         os.makedirs(gw_base_path, exist_ok=True)
-        os.makedirs(tournament_path, exist_ok=True)
 
-        gw_playerstats.to_csv(os.path.join(gw_base_path, 'player_stats.csv'), index=False)
-        gw_matches.to_csv(os.path.join(gw_base_path, 'matches.csv'), index=False)
+        logger.info(f"Processing GW{gw} (Finished: {gw_info['finished']})...")
         
+        # Filter data for the current gameweek
+        gw_matches = matches_df[matches_df['gameweek'] == gw]
+
         if not gw_info['finished']:
-            logger.info("  > Gameweek is not finished. Saving current player/team snapshots.")
+            # For UNFINISHED gameweeks, save current stats and master lists
+            logger.info("  > Saving playerstats, players, teams, and fixtures snapshots.")
+            gw_playerstats = playerstats_df[playerstats_df['gw'] == gw]
+            
+            gw_playerstats.to_csv(os.path.join(gw_base_path, 'playerstats.csv'), index=False)
             players_df.to_csv(os.path.join(gw_base_path, 'players.csv'), index=False)
             teams_df.to_csv(os.path.join(gw_base_path, 'teams.csv'), index=False)
+            gw_matches.to_csv(os.path.join(gw_base_path, 'fixtures.csv'), index=False)
+
         else:
-             logger.info("  > Gameweek is finished. Skipping player/team snapshot update to preserve history.")
-
-        logger.info(f"  > Saved data to '{gw_base_path}'")
-        logger.info(f"  > Saved data to '{tournament_path}'\n")
-
-    # --- Update Master Files ---
-    logger.info("--- Updating master data files in root directory ---")
-    finished_gws_in_run = [gw for gw in new_gameweeks if not gameweeks_df[gameweeks_df['id'] == gw].empty and gameweeks_df[gameweeks_df['id'] == gw].iloc[0]['finished']]
-    
-    if finished_gws_in_run:
-        logger.info(f"  > Updating master 'playerstats.csv' with data for finished GWs: {finished_gws_in_run}")
-        master_stats_path = os.path.join(BASE_DATA_PATH, 'playerstats.csv')
-        new_finished_stats = playerstats_df[playerstats_df['gw'].isin(finished_gws_in_run)]
-        
-        if os.path.exists(master_stats_path):
-            master_stats_df = pd.read_csv(master_stats_path)
-            master_stats_df = master_stats_df[~master_stats_df['gw'].isin(finished_gws_in_run)]
-            updated_df = pd.concat([master_stats_df, new_finished_stats], ignore_index=True)
-        else:
-            updated_df = new_finished_stats
-        
-        updated_df.to_csv(master_stats_path, index=False)
-
-    # Update the gameweek summaries file
-    gameweeks_df.to_csv(SUMMARY_FILE_PATH, index=False)
-    logger.info(f"  > Master files in '{BASE_DATA_PATH}' updated.")
+            # For FINISHED gameweeks, save final match results and detailed stats
+            logger.info("  > Saving final matches and playermatchstats.")
+            gw_playermatchstats = playermatchstats_df[playermatchstats_df['gameweek'] == gw]
+            
+            gw_matches.to_csv(os.path.join(gw_base_path, 'matches.csv'), index=False)
+            gw_playermatchstats.to_csv(os.path.join(gw_base_path, 'playermatchstats.csv'), index=False)
 
     logger.info("\n--- Automated data update process completed successfully! ---")
 
