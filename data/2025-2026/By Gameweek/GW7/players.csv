@@ -553,6 +553,7 @@ player_code,player_id,first_name,second_name,web_name,team_code,position
 107265,675,Angus,Gunn,Gunn,17,Goalkeeper
 503301,693,Omari,Hutchinson,Hutchinson,17,Midfielder
 465680,696,Arnaud,Kalimuendo,Kalimuendo,17,Forward
+230046,699,Douglas Luiz,Soares de Paulo,Douglas Luiz,17,Midfielder
 499309,252,Marc,Guiu Paz,Marc Guiu,56,Forward
 232571,528,Anthony,Patterson,Patterson,56,Goalkeeper
 74854,529,Simon,Moore,Moore,56,Goalkeeper
@@ -608,8 +609,6 @@ player_code,player_id,first_name,second_name,web_name,team_code,position
 202993,585,Rodrigo,Bentancur,Bentancur,6,Midfielder
 570526,586,Lucas,Bergvall,Bergvall,6,Midfielder
 227127,587,Yves,Bissouma,Bissouma,6,Midfielder
-550839,588,Wilson,Odobert,Odobert,6,Midfielder
-235674,589,Manor,Solomon,Solomon,6,Midfielder
 138001,630,Tom,King,King,11,Goalkeeper
 221632,569,Cristian,Romero,Romero,6,Defender
 135720,570,Kevin,Danso,Danso,6,Defender
@@ -622,6 +621,8 @@ player_code,player_id,first_name,second_name,web_name,team_code,position
 553299,577,Takai,Kōta,Takai,6,Defender
 610799,578,Luka,Vušković,Vuskovic,6,Defender
 85971,579,Son,Heung-min,Son,6,Midfielder
+550839,588,Wilson,Odobert,Odobert,6,Midfielder
+235674,589,Manor,Solomon,Solomon,6,Midfielder
 436234,590,Bryan,Gil Salvatierra,Bryan,6,Midfielder
 547701,591,Archie,Gray,Gray,6,Midfielder
 499721,592,Mikey,Moore,Moore,6,Midfielder
