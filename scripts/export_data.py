@@ -16,7 +16,8 @@ TOURNAMENT_NAME_MAP = {
     'champions-league': 'Champions League',
     'prem': 'Premier League',
     'community-shield': 'Community Shield',
-    'uefa-super-cup': 'Uefa Super Cup'
+    'uefa-super-cup': 'Uefa Super Cup',
+    'efl-cup' : 'EFL Cup'
 }
 
 # --- Logging Setup ---
