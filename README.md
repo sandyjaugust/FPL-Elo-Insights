@@ -9,6 +9,17 @@ It combines three powerful data sources:
 
 ## What's New for the 2025/26 Season?
 
+## player_gameweek_stats (NEW! 27/8)
+This table is auto-generated to provide discrete, analysis-ready stats for a single gameweek. It solves the problem of cumulative data in the playerstats table.
+For example, the goals_scored column in this file shows the goals a player scored only in that gameweek, not their season total. It is the recommended source for analyzing week-by-week player performance.
+It contains three types of data:
+Calculated Performance Stats: Columns like goals_scored, assists, bonus, bps, minutes, etc., are calculated by subtracting the previous gameweek's total from the current one.
+Gameweek-Specific Stats: Columns like event_points are taken directly as they already represent the single gameweek.
+Snapshot Stats: Columns like now_cost, selected_by_percent, and form represent the player's status at the deadline of that gameweek.
+This file uses the same column structure as playerstats for consistency.
+Links:
+id links to the player_id in the players table.
+
 This season, FPL-Elo-Insights is taking a massive leap forward, pushing beyond what inspired this project to deliver an even richer analytical experience.
 
 ### 🏆 Expanded Tournament Coverage Synced to FPL Players
