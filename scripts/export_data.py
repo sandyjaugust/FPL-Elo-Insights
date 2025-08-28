@@ -24,6 +24,23 @@ TOURNAMENT_NAME_MAP = {
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__name__)
 
+# --- Column Definitions for Stat Calculation ---
+CUMULATIVE_COLS = [
+    'total_points', 'minutes', 'goals_scored', 'assists', 'clean_sheets',
+    'goals_conceded', 'own_goals', 'penalties_saved', 'penalties_missed',
+    'yellow_cards', 'red_cards', 'saves', 'starts', 'bonus', 'bps',
+    'transfers_in', 'transfers_out', 'dreamteam_count', 'expected_goals',
+    'expected_assists', 'expected_goal_involvements', 'expected_goals_conceded',
+    'influence', 'creativity', 'threat', 'ict_index'
+]
+ID_COLS = ['id', 'first_name', 'second_name', 'web_name']
+SNAPSHOT_COLS = [
+    'status', 'news', 'now_cost', 'selected_by_percent', 'form', 'event_points',
+    'cost_change_event', 'transfers_in_event', 'transfers_out_event',
+    'value_form', 'value_season', 'ep_next', 'ep_this'
+]
+
+
 def initialize_supabase_client() -> Client:
     """Initializes and returns a Supabase client."""
     supabase_url = os.environ.get("SUPABASE_URL")
@@ -53,6 +70,121 @@ def fetch_all_rows(supabase: Client, table_name: str) -> pd.DataFrame:
         logger.error(f"An error occurred while fetching from {table_name}: {e}")
         return pd.DataFrame()
 
+def calculate_discrete_gameweek_stats():
+    """
+    Calculates discrete gameweek stats for both the main 'By Gameweek'
+    folders and all 'By Tournament' sub-folders.
+    """
+    logger.info("\n--- 4. Calculating and Saving Discrete Gameweek Player Stats ---")
+    by_gameweek_path = os.path.join(BASE_DATA_PATH, 'By Gameweek')
+    by_tournament_path = os.path.join(BASE_DATA_PATH, 'By Tournament')
+    output_filename = 'player_gameweek_stats.csv'
+
+    if not os.path.isdir(by_gameweek_path):
+        logger.error(f"  > Main 'By Gameweek' directory not found. Aborting calculation.")
+        return
+
+    # --- Part 1: Process 'By Gameweek' folders ---
+    logger.info("\nProcessing main 'By Gameweek' directory...")
+    try:
+        gameweek_dirs = sorted([d for d in os.listdir(by_gameweek_path) if d.startswith('GW')], key=lambda x: int(x[2:]))
+    except (ValueError, IndexError):
+        logger.error("  > Could not parse gameweek numbers. Skipping 'By Gameweek' processing.")
+        gameweek_dirs = []
+
+    for i, gw_dir in enumerate(gameweek_dirs):
+        current_stats_path = os.path.join(by_gameweek_path, gw_dir, 'playerstats.csv')
+        if not os.path.exists(current_stats_path):
+            logger.warning(f"  > {gw_dir}: playerstats.csv not found, skipping.")
+            continue
+        
+        current_df = pd.read_csv(current_stats_path)
+        
+        # Handle GW1 (baseline)
+        if i == 0:
+            logger.info(f"Processing baseline: {gw_dir}...")
+            final_cols = ID_COLS + SNAPSHOT_COLS + CUMULATIVE_COLS
+            existing_cols = [col for col in final_cols if col in current_df.columns]
+            output_df = current_df[existing_cols]
+        else: # Handle GW2 onwards
+            prev_gw_dir = gameweek_dirs[i-1]
+            logger.info(f"Processing {gw_dir} (comparing with {prev_gw_dir})...")
+            prev_stats_path = os.path.join(by_gameweek_path, prev_gw_dir, 'playerstats.csv')
+
+            if not os.path.exists(prev_stats_path):
+                logger.warning(f"  > Previous gameweek stats not found for {gw_dir}. Skipping.")
+                continue
+
+            prev_df = pd.read_csv(prev_stats_path)
+            merged_df = pd.merge(current_df, prev_df[ID_COLS + CUMULATIVE_COLS], on='id', how='left', suffixes=('', '_prev'))
+            
+            for col in CUMULATIVE_COLS:
+                if col in merged_df.columns and f"{col}_prev" in merged_df.columns:
+                    merged_df[f"{col}_prev"] = merged_df[f"{col}_prev"].fillna(0)
+                    merged_df[col] = merged_df[col] - merged_df[f"{col}_prev"]
+            
+            final_cols = ID_COLS + SNAPSHOT_COLS + CUMULATIVE_COLS
+            existing_final_cols = [col for col in final_cols if col in merged_df.columns]
+            output_df = merged_df[existing_final_cols]
+
+        output_path = os.path.join(by_gameweek_path, gw_dir, output_filename)
+        output_df.to_csv(output_path, index=False)
+        logger.info(f"  > Saved calculated stats for {gw_dir}.")
+
+    # --- Part 2: Process 'By Tournament' folders ---
+    logger.info("\nProcessing 'By Tournament' sub-directories...")
+    if not os.path.isdir(by_tournament_path):
+        logger.warning("  > 'By Tournament' directory not found. Skipping.")
+        return
+        
+    for tournament_name in os.listdir(by_tournament_path):
+        tournament_dir = os.path.join(by_tournament_path, tournament_name)
+        if not os.path.isdir(tournament_dir): continue
+
+        logger.info(f"Scanning Tournament: {tournament_name}...")
+        try:
+            tournament_gw_dirs = sorted([d for d in os.listdir(tournament_dir) if d.startswith('GW')], key=lambda x: int(x[2:]))
+        except (ValueError, IndexError):
+            logger.error(f"  > Could not parse gameweek numbers for {tournament_name}. Skipping.")
+            continue
+
+        for gw_dir in tournament_gw_dirs:
+            gw_num = int(gw_dir[2:])
+            current_stats_path = os.path.join(tournament_dir, gw_dir, 'playerstats.csv')
+            if not os.path.exists(current_stats_path):
+                logger.warning(f"  > {tournament_name}/{gw_dir}: playerstats.csv not found, skipping.")
+                continue
+
+            current_df = pd.read_csv(current_stats_path)
+
+            if gw_num == 1:
+                final_cols = ID_COLS + SNAPSHOT_COLS + CUMULATIVE_COLS
+                existing_cols = [col for col in final_cols if col in current_df.columns]
+                output_df = current_df[existing_cols]
+            else:
+                # IMPORTANT: Previous stats are always sourced from the main 'By Gameweek' folder
+                prev_stats_path = os.path.join(by_gameweek_path, f'GW{gw_num - 1}', 'playerstats.csv')
+                if not os.path.exists(prev_stats_path):
+                    logger.warning(f"  > {tournament_name}/{gw_dir}: Baseline stats from GW{gw_num - 1} not found. Skipping.")
+                    continue
+                
+                prev_df = pd.read_csv(prev_stats_path)
+                merged_df = pd.merge(current_df, prev_df[ID_COLS + CUMULATIVE_COLS], on='id', how='left', suffixes=('', '_prev'))
+                
+                for col in CUMULATIVE_COLS:
+                    if col in merged_df.columns and f"{col}_prev" in merged_df.columns:
+                        merged_df[f"{col}_prev"] = merged_df[f"{col}_prev"].fillna(0)
+                        merged_df[col] = merged_df[col] - merged_df[f"{col}_prev"]
+
+                final_cols = ID_COLS + SNAPSHOT_COLS + CUMULATIVE_COLS
+                existing_final_cols = [col for col in final_cols if col in merged_df.columns]
+                output_df = merged_df[existing_final_cols]
+            
+            output_path = os.path.join(tournament_dir, gw_dir, output_filename)
+            output_df.to_csv(output_path, index=False)
+            logger.info(f"  > Saved calculated stats for {tournament_name}/{gw_dir}.")
+
+
 def main():
     """Runs the full, corrected data export pipeline."""
     logger.info(f"--- Starting Comprehensive Data Update for Season {SEASON} ---")
@@ -73,23 +205,22 @@ def main():
         logger.error("❌ Critical: One or more essential tables could not be fetched. Aborting.")
         sys.exit(1)
 
-    # --- Extract tournament slug from match_id ---
+    # --- Data Pre-processing ---
     def extract_tournament_slug(match_id):
+        if not isinstance(match_id, str): return None
         for slug in TOURNAMENT_NAME_MAP.keys():
             if slug in match_id:
                 return slug
         return None
     matches_df['tournament'] = matches_df['match_id'].apply(extract_tournament_slug)
 
-    # --- NEW: Filter out all friendlies and gameweek 0 matches ---
     logger.info("\nFiltering out friendlies and pre-season (GW0) matches...")
     initial_match_count = len(matches_df)
     matches_df = matches_df[(matches_df['gameweek'] != 0) & (matches_df['tournament'] != 'friendly')]
     final_match_count = len(matches_df)
     logger.info(f"  > Removed {initial_match_count - final_match_count} matches. Processing {final_match_count} relevant matches.")
-    # --- END NEW CODE ---
 
-    # --- 1. Update Master Data Files (Unconditional) ---
+    # --- 1. Update Master Data Files ---
     logger.info("\n--- 1. Updating Master Data Files ---")
     os.makedirs(BASE_DATA_PATH, exist_ok=True)
     gameweeks_df.to_csv(os.path.join(BASE_DATA_PATH, 'gameweek_summaries.csv'), index=False)
@@ -109,8 +240,8 @@ def main():
         gws_in_tournament = sorted(tournament_matches['gameweek'].dropna().unique().astype(int))
 
         for gw in gws_in_tournament:
+            if gw not in gameweeks_df['id'].values: continue
             is_finished = gameweeks_df.loc[gameweeks_df['id'] == gw, 'finished'].iloc[0]
-            logger.info(f"  > Processing GW{gw} for {folder_name} (Finished: {is_finished})...")
             
             tournament_gw_path = os.path.join(BASE_DATA_PATH, 'By Tournament', folder_name, f'GW{gw}')
             os.makedirs(tournament_gw_path, exist_ok=True)
@@ -121,22 +252,18 @@ def main():
             
             gw_tournament_matches.to_csv(os.path.join(tournament_gw_path, 'matches.csv'), index=False)
             gw_tournament_playerstats.to_csv(os.path.join(tournament_gw_path, 'playermatchstats.csv'), index=False)
-
-            if not is_finished:
-                gw_tournament_matches.to_csv(os.path.join(tournament_gw_path, 'fixtures.csv'), index=False)
-                players_df.to_csv(os.path.join(tournament_gw_path, 'players.csv'), index=False)
-                teams_df.to_csv(os.path.join(tournament_gw_path, 'teams.csv'), index=False)
-                gw_playerstats_snapshot = playerstats_df[playerstats_df['gw'] == gw]
-                gw_playerstats_snapshot.to_csv(os.path.join(tournament_gw_path, 'playerstats.csv'), index=False)
+            gw_tournament_matches.to_csv(os.path.join(tournament_gw_path, 'fixtures.csv'), index=False)
+            players_df.to_csv(os.path.join(tournament_gw_path, 'players.csv'), index=False)
+            teams_df.to_csv(os.path.join(tournament_gw_path, 'teams.csv'), index=False)
+            playerstats_df[playerstats_df['gw'] == gw].to_csv(os.path.join(tournament_gw_path, 'playerstats.csv'), index=False)
 
     # --- 3. Populate 'By Gameweek' Folders ---
     logger.info("\n--- 3. Populating 'By Gameweek' Folders ---")
     unique_gameweeks = sorted(gameweeks_df['id'].dropna().unique().astype(int))
 
     for gw in unique_gameweeks:
-        is_finished = gameweeks_df.loc[gameweeks_df['id'] == gw, 'finished'].iloc[0]
-        logger.info(f"Processing GW{gw} (Finished: {is_finished})...")
-
+        if gw not in gameweeks_df['id'].values: continue
+        
         gw_path = os.path.join(BASE_DATA_PATH, 'By Gameweek', f'GW{gw}')
         os.makedirs(gw_path, exist_ok=True)
         
@@ -144,18 +271,16 @@ def main():
         match_ids = gw_matches['match_id'].unique().tolist()
         gw_playermatchstats = playermatchstats_df[playermatchstats_df['match_id'].isin(match_ids)]
         
-        logger.info("  > Saving matches and player-match-stats...")
         gw_matches.to_csv(os.path.join(gw_path, 'matches.csv'), index=False)
         gw_playermatchstats.to_csv(os.path.join(gw_path, 'playermatchstats.csv'), index=False)
-        
-        if not is_finished:
-            logger.info("  > Gameweek is active. Saving fixtures and data snapshots...")
-            gw_matches.to_csv(os.path.join(gw_path, 'fixtures.csv'), index=False)
-            players_df.to_csv(os.path.join(gw_path, 'players.csv'), index=False)
-            teams_df.to_csv(os.path.join(gw_path, 'teams.csv'), index=False)
-            
-            gw_playerstats_snapshot = playerstats_df[playerstats_df['gw'] == gw]
-            gw_playerstats_snapshot.to_csv(os.path.join(gw_path, 'playerstats.csv'), index=False)
+        gw_matches.to_csv(os.path.join(gw_path, 'fixtures.csv'), index=False)
+        players_df.to_csv(os.path.join(gw_path, 'players.csv'), index=False)
+        teams_df.to_csv(os.path.join(gw_path, 'teams.csv'), index=False)
+        playerstats_df[playerstats_df['gw'] == gw].to_csv(os.path.join(gw_path, 'playerstats.csv'), index=False)
+        logger.info(f"Populated data for GW{gw}.")
+
+    # --- 4. Perform the discrete gameweek calculation ---
+    calculate_discrete_gameweek_stats()
 
     logger.info("\n--- Comprehensive data update process completed successfully! ---")
 
