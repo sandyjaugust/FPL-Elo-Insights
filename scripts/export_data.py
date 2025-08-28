@@ -22,7 +22,7 @@ TOURNAMENT_NAME_MAP = {
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, format='%(message)s')
-logger = getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 # --- Column Definitions for Stat Calculation ---
 CUMULATIVE_COLS = [
