@@ -7,9 +7,18 @@ It combines three powerful data sources:
 2.  **Manually Curated Match Stats (Opta-like)**: Deep-dive performance metrics for every player and match.
 3.  **ClubElo.com Elo Ratings**: Historical and current team strength ratings for robust fixture analysis.
 
+## Using The Data
+Feel free to use the data from this repository in whatever way works best for you—whether for your website, blog posts, or other projects. If possible, I’d greatly appreciate it if you could include a link back to this repository as the data source.
+
+Inspired by the amazing work of [vaastav/Fantasy-Premier-League](https://github.com/vaastav/Fantasy-Premier-League), this project aims to continue the spirit of open data in the FPL community. If you build something cool, let me know – I'd be happy to feature a link to your project!
+</details>
+
 ## What's New for the 2025/26 Season?
 
-## player_gameweek_stats (NEW! 27/8)
+<details>
+<summary>Click Here to Expand</summary>
+
+## player_gameweek_stats 
 This table is auto-generated to provide discrete, analysis-ready stats for a single gameweek. It solves the problem of cumulative data in the playerstats table.
 For example, the goals_scored column in this file shows the goals a player scored only in that gameweek, not their season total. It is the recommended source for analyzing week-by-week player performance.
 It contains three types of data:
@@ -35,6 +44,8 @@ Following the new FPL rules that reward defensive contributions, I've integrated
 
 ### 📂 New & Improved Data Structure
 The data is now organized into a more intuitive structure to make analysis easier than ever. You can access data sliced in different ways depending on your needs.
+
+</details>
 
 ## Data Updates
 
@@ -65,12 +76,6 @@ The data for the season is organized into three main categories within the `data
     *   **Location**: `By Tournament/{tournament_name}/`
     *   **Description**: Contains a self-contained snapshot of all data for a specific tournament.
     *   **Files**: `fixtures.csv`, `matches.csv`, `playermatchstats.csv`, `playerstats.csv`, `players.csv`, `teams.csv`
-
-## Using The Data
-Feel free to use the data from this repository in whatever way works best for you—whether for your website, blog posts, or other projects. If possible, I’d greatly appreciate it if you could include a link back to this repository as the data source.
-
-Inspired by the amazing work of [vaastav/Fantasy-Premier-League](https://github.com/vaastav/Fantasy-Premier-League), this project aims to continue the spirit of open data in the FPL community. If you build something cool, let me know – I'd be happy to feature a link to your project!
-</details>
 
 ## Data Tables Explained
 
