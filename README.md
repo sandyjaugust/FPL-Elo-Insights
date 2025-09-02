@@ -59,23 +59,42 @@ All data is provided in **CSV format** for easy import into any data analysis to
 <details>
 <summary>Click here to expand</summary>
 
+The data for each season is organized within a dedicated directory, such as `data/2025-2026/`. The structure is designed to provide both high-level summaries and granular, point-in-time snapshots.
 
-The data for the season is organized into three main categories within the `data/2025-2026/` directory:
+### 1. Master Files (Season-Level Data)
 
-1.  **Master Files**
-    *   **Location**: `/`
-    *   **Description**: These are the main, always-up-to-date files for the entire season.
-    *   **Files**: `players.csv`, `teams.csv`, `playerstats.csv`, `gameweeks.csv`
+These files are located at the root of the season's directory (e.g., `data/2025-2026/`) and contain the most current, aggregated data for the entire season.
 
-2.  **By Gameweek**
-    *   **Location**: `By Gameweek/GW{x}/`
-    *   **Description**: Contains a complete snapshot of all data relevant to a specific gameweek.
-    *   **Files**: `fixtures.csv`, `matches.csv`, `playermatchstats.csv`, `playerstats.csv`, `players.csv`, `teams.csv`
+*   **Location**: `/data/{season}/`
+*   **Description**: The primary, always-up-to-date data files.
+*   **Files**:
+    *   `players.csv`: A comprehensive list of all players for the season.
+    *   `teams.csv`: Details for all teams participating in the season.
+    *   `playerstats.csv`: Aggregated season-total statistics for every player.
+    *   `gameweek_summaries.csv`: A summary of key events and data for each gameweek.
 
-3.  **By Tournament**
-    *   **Location**: `By Tournament/{tournament_name}/`
-    *   **Description**: Contains a self-contained snapshot of all data for a specific tournament.
-    *   **Files**: `fixtures.csv`, `matches.csv`, `playermatchstats.csv`, `playerstats.csv`, `players.csv`, `teams.csv`
+### 2. By Gameweek (Gameweek-Specific Snapshots)
+
+This directory contains snapshots of the data as it appeared at the end of each specific gameweek. This is useful for historical analysis or replaying a specific point in the season.
+
+*   **Location**: `/data/{season}/By Gameweek/GW{x}/`
+*   **Description**: A complete data snapshot for a given gameweek (`GW`).
+*   **Files**:
+    *   `fixtures.csv`: All scheduled fixtures relevant to that gameweek.
+    *   `matches.csv`: Detailed results and data for all matches played up to that gameweek.
+    *   `players.csv`: The state of the players list at the end of the gameweek.
+    *   `teams.csv`: The state of the teams list at the end of the gameweek.
+    *   `playerstats.csv`: Cumulative player statistics up to that gameweek.
+    *   `playermatchstats.csv`: Individual player performance for each match within that gameweek.
+    *   `player_gameweek_stats.csv`: A summary of each player's performance specifically for that gameweek.
+
+### 3. By Tournament (Tournament-Specific Data)
+
+This section isolates the data for each individual tournament, providing a self-contained view of all relevant matches, players, and stats for that competition.
+
+*   **Location**: `/data/{season}/By Tournament/{tournament_name}/GW{x}/`
+*   **Description**: Data filtered to include only information relevant to a specific tournament (e.g., `Premier League`, `EFL Cup`). The data is further organized by the gameweek in which the tournament's matches occurred.
+*   **Files**: The file structure within each tournament's gameweek folder is identical to the main "By Gameweek" snapshots, but it only contains data related to that specific tournament.
 
 ## Data Tables Explained
 
