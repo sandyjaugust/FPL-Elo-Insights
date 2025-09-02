@@ -45,9 +45,8 @@ The dataset is automatically refreshed twice daily at:
 All data is provided in **CSV format** for easy import into any data analysis tool.
 
 <details>
-<summary>Data Structure Overview</summary>
+<summary>## Data Structure Overview</summary>
 
-## Data Structure Overview
 
 The data for the season is organized into three main categories within the `data/2025-2026/` directory:
 
