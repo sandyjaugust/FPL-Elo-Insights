@@ -7,6 +7,14 @@ It combines three powerful data sources:
 2.  **Manually Curated Match Stats (Opta-like)**: Deep-dive performance metrics for every player and match.
 3.  **ClubElo.com Elo Ratings**: Historical and current team strength ratings for robust fixture analysis.
 
+## Data Updates
+
+The dataset is automatically refreshed twice daily at:
+- **5:00 AM UTC**
+- **5:00 PM UTC**
+
+All data is provided in **CSV format** for easy import into any data analysis tool.
+
 ## Using The Data
 Feel free to use the data from this repository in whatever way works best for you—whether for your website, blog posts, or other projects. If possible, I’d greatly appreciate it if you could include a link back to this repository as the data source.
 
@@ -46,14 +54,6 @@ Following the new FPL rules that reward defensive contributions, I've integrated
 The data is now organized into a more intuitive structure to make analysis easier than ever. You can access data sliced in different ways depending on your needs.
 
 </details>
-
-## Data Updates
-
-The dataset is automatically refreshed twice daily at:
-- **5:00 AM UTC**
-- **5:00 PM UTC**
-
-All data is provided in **CSV format** for easy import into any data analysis tool.
 
 ## Data Structure Overview
 <details>
