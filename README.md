@@ -74,6 +74,9 @@ Inspired by the amazing work of [vaastav/Fantasy-Premier-League](https://github.
 
 ## Data Tables Explained
 
+<details>
+<summary>Click Here to Expand</summary>
+
 ### `matches`
 
 This table contains comprehensive match-level data for all **finished** games.
@@ -330,3 +333,6 @@ This table contains information about each team from the FPL API.
 
 **Links:**
 *   `id` links to `home_team` and `away_team` in the `matches` and `fixtures` tables.
+
+
+</details>
