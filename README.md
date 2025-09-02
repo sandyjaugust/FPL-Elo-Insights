@@ -44,6 +44,9 @@ The dataset is automatically refreshed twice daily at:
 
 All data is provided in **CSV format** for easy import into any data analysis tool.
 
+<details>
+<summary>Data Structure Overview</summary>
+
 ## Data Structure Overview
 
 The data for the season is organized into three main categories within the `data/2025-2026/` directory:
@@ -67,6 +70,7 @@ The data for the season is organized into three main categories within the `data
 Feel free to use the data from this repository in whatever way works best for you—whether for your website, blog posts, or other projects. If possible, I’d greatly appreciate it if you could include a link back to this repository as the data source.
 
 Inspired by the amazing work of [vaastav/Fantasy-Premier-League](https://github.com/vaastav/Fantasy-Premier-League), this project aims to continue the spirit of open data in the FPL community. If you build something cool, let me know – I'd be happy to feature a link to your project!
+</details>
 
 ## Data Tables Explained
 
