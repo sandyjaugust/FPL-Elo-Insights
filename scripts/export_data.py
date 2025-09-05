@@ -44,6 +44,7 @@ SNAPSHOT_COLS = [
 
 def initialize_supabase_client() -> Client:
     """Initializes and returns a Supabase client."""
+    user_secrets = UserSecretsClient()
     supabase_url = user_secrets.get_secret("supabase_url")
     supabase_key = user_secrets.get_secret("supabase_key")
     if not supabase_url or not supabase_key:
