@@ -43,8 +43,8 @@ SNAPSHOT_COLS = [
 
 def initialize_supabase_client() -> Client:
     """Initializes and returns a Supabase client."""
-    supabase_url = os.environ.get("SUPABASE_URL")
-    supabase_key = os.environ.get("SUPABASE_KEY")
+    supabase_url = user_secrets.get_secret("supabase_url")
+    supabase_key = user_secrets.get_secret("supabase_key")
     if not supabase_url or not supabase_key:
         logger.error("❌ Error: SUPABASE_URL and SUPABASE_KEY must be set.")
         sys.exit(1)
