@@ -5,12 +5,10 @@ player_code,player_id,first_name,second_name,web_name,team_code,position
 645618,702,Bradley,Burrowes,Burrowes,7,Midfielder
 184667,719,Victor,Lindelöf,Lindelöf,7,Defender
 441240,92,Romain,Faivre,Faivre,91,Midfielder
-622536,114,Benjamin,Arthur,Arthur,94,Defender
 612534,115,Benjamin,Fredrick,Fredrick,94,Defender
 472713,116,Aaron,Hickey,Hickey,94,Defender
 570241,117,Kim,Ji-soo,Ji-soo,94,Defender
 499717,118,Jayden,Meghoma,Meghoma,94,Defender
-513418,120,Kevin,Schade,Schade,94,Midfielder
 440089,121,Mikkel,Damsgaard,Damsgaard,94,Midfielder
 543295,122,Antoni,Milambo,Milambo,94,Midfielder
 244858,123,Fábio,Freitas Gouveia Carvalho,Carvalho,94,Midfielder
@@ -94,9 +92,9 @@ player_code,player_id,first_name,second_name,web_name,team_code,position
 514356,244,Roméo,Lavia,Lavia,8,Midfielder
 465920,245,Mykhailo,Mudryk,Mudryk,8,Midfielder
 532605,246,Andrey,Nascimento dos Santos,Andrey Santos,8,Midfielder
-216055,722,Florentino Ibrain,Morris Luís,Florentino,90,Midfielder
 491007,247,Dário,Luís Essugo,D.Essugo,8,Midfielder
 611134,248,Kendry,Páez Andrade,Paez,8,Midfielder
+216055,722,Florentino Ibrain,Morris Luís,Florentino,90,Midfielder
 475168,249,João Pedro,Junqueira de Jesus,João Pedro,8,Forward
 463034,250,Liam,Delap,Delap,8,Forward
 517052,251,Nicolas,Jackson,N.Jackson,8,Forward
@@ -196,14 +194,14 @@ player_code,player_id,first_name,second_name,web_name,team_code,position
 226182,342,Jayden,Bogle,Bogle,2,Defender
 222694,343,Pascal,Struijk,Struijk,2,Defender
 434752,344,Jaka,Bijol,Bijol,2,Defender
+437738,345,Sebastiaan,Bornauw,Bornauw,2,Defender
+113564,346,Sam,Byram,Byram,2,Defender
 224117,666,Viktor,Gyökeres,Gyökeres,3,Forward
 616077,700,Max,Dowman,Dowman,3,Midfielder
 646243,711,Andre,Harriman-Annous,Harriman-Annous,3,Midfielder
 444884,389,Harvey,Elliott,Elliott,7,Midfielder
 569577,701,Triston,Rowe,Rowe,7,Defender
-226956,112,Mads,Roerslev Rasmussen,Roerslev,94,Defender
-437738,345,Sebastiaan,Bornauw,Bornauw,2,Defender
-113564,346,Sam,Byram,Byram,2,Defender
+249231,107,Keane,Lewis-Potter,Lewis-Potter,94,Defender
 243526,347,Gabriel,Gudmundsson,Gudmundsson,2,Defender
 214225,348,Joe,Rodon,Rodon,2,Defender
 492368,349,Isaac,Schmidt,Schmidt,2,Defender
@@ -291,6 +289,8 @@ player_code,player_id,first_name,second_name,web_name,team_code,position
 451302,431,Altay,Bayındır,Bayindir,1,Goalkeeper
 21205,434,Tom,Heaton,Heaton,1,Goalkeeper
 209365,436,Matthijs,de Ligt,De Ligt,1,Defender
+230001,438,Noussair,Mazraoui,Mazraoui,1,Defender
+661712,439,Diego,León Blanco,D.Leon,1,Defender
 209243,456,Jadon,Sancho,Sancho,7,Midfielder
 481283,688,James,Wright,Wright,7,Goalkeeper
 564505,703,Sam,Proctor,Proctor,7,Goalkeeper
@@ -302,13 +302,11 @@ player_code,player_id,first_name,second_name,web_name,team_code,position
 191866,108,Kristoffer,Ajer,Ajer,94,Defender
 607464,110,Michael,Kayode,Kayode,94,Defender
 231065,111,Ethan,Pinnock,Pinnock,94,Defender
+226956,112,Mads,Roerslev Rasmussen,Roerslev,94,Defender
 444765,113,Sepp,van den Berg,Van den Berg,94,Defender
-230001,438,Noussair,Mazraoui,Mazraoui,1,Defender
-661712,439,Diego,León Blanco,D.Leon,1,Defender
+622536,114,Benjamin,Arthur,Arthur,94,Defender
 95658,442,Harry,Maguire,Maguire,1,Defender
 106760,443,Luke,Shaw,Shaw,1,Defender
-550864,444,Leny,Yoro,Yoro,1,Defender
-577974,445,Harry,Amass,Amass,1,Defender
 547676,446,Tyler,Fredricson,Fredricson,1,Defender
 606745,447,Ayden,Heaven,Heaven,1,Defender
 222690,448,Tyrell,Malacia,Malacia,1,Defender
@@ -523,7 +521,7 @@ player_code,player_id,first_name,second_name,web_name,team_code,position
 514315,45,Lino,da Cruz Sousa,Sousa,7,Defender
 200641,27,Reiss,Nelson,Nelson,94,Midfielder
 432830,106,Nathan,Collins,Collins,94,Defender
-249231,107,Keane,Lewis-Potter,Lewis-Potter,94,Defender
+513418,120,Kevin,Schade,Schade,94,Midfielder
 549329,195,Lucas,Pires Silva,Lucas Pires,90,Defender
 590760,99,Daniel,Adu-Adjei,Adu-Adjei,91,Forward
 194010,109,Rico,Henry,Henry,94,Defender
@@ -556,6 +554,8 @@ player_code,player_id,first_name,second_name,web_name,team_code,position
 221820,437,Lisandro,Martínez,Martinez,1,Defender
 216051,440,Diogo,Dalot Teixeira,Dalot,1,Defender
 596777,441,Patrick,Dorgu,Dorgu,1,Defender
+550864,444,Leny,Yoro,Yoro,1,Defender
+577974,445,Harry,Amass,Amass,1,Defender
 499309,252,Marc,Guiu Paz,Marc Guiu,8,Forward
 547719,497,Lewis,Miley,L.Miley,4,Midfielder
 432714,426,James,McAtee,McAtee,17,Midfielder
