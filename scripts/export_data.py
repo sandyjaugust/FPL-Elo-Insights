@@ -4,6 +4,7 @@ import os
 import sys
 import pandas as pd
 from supabase import create_client, Client
+from kaggle_secrets import UserSecretsClient
 import logging
 from datetime import datetime, timezone
 
